@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fellowship Football — World Cup 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --pitch-1: #1e6e35;
+    --pitch-2: #22783b;
+    --pitch-dark: #155226;
+    --ball-black: #0a0a0a;
+    --ball-white: #fafafa;
+    --line-white: rgba(255,255,255,0.55);
+    --live-red: #dc2626;
+    --gold: #f5c542;
+    --silver: #cbd5e1;
+    --bronze: #c08552;
+    --pts-4: #16a34a;
+    --pts-3: #4ade80;
+    --pts-2: #bbf7d0;
+    --pts-1: #fde68a;
+    --pts-0: #f3f4f6;
+    --shadow-card: 0 12px 28px -10px rgba(0,0,0,.35), 0 2px 6px rgba(0,0,0,.18);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: #111;
+    background:
+      repeating-linear-gradient(
+        0deg,
+        var(--pitch-1) 0 64px,
+        var(--pitch-2) 64px 128px
+      );
+    background-attachment: fixed;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* faint pitch lines across the canvas */
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(to bottom, transparent 0, transparent calc(50% - 1px), var(--line-white) calc(50% - 1px), var(--line-white) calc(50% + 1px), transparent calc(50% + 1px));
+    opacity: 0.25;
+    z-index: 0;
+  }
+
+  /* ---------- Header ---------- */
+  header {
+    background: var(--ball-black);
+    color: var(--ball-white);
+    border-bottom: 4px solid var(--ball-white);
+    position: relative;
+    z-index: 2;
+  }
+  .header-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 18px 20px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 18px;
+    align-items: center;
+  }
+  .ball {
+    width: 48px; height: 48px;
+    flex-shrink: 0;
+  }
+  .site-title {
+    font-family: 'Anton', sans-serif;
+    font-weight: 400;
+    font-size: clamp(20px, 3.4vw, 30px);
+    letter-spacing: 0.04em;
+    line-height: 1;
+    margin: 0;
+    text-transform: uppercase;
+  }
+  .site-title .sub {
+    display: block;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    font-weight: 600;
+    color: #9ca3af;
+    margin-top: 6px;
+  }
+  .updated {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #9ca3af;
+    text-align: right;
+    line-height: 1.4;
+  }
+  .updated .dot {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--pts-3); margin-right: 6px;
+    box-shadow: 0 0 0 0 rgba(74,222,128,.6);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(74,222,128,.5); }
+    70% { box-shadow: 0 0 0 8px rgba(74,222,128,0); }
+    100% { box-shadow: 0 0 0 0 rgba(74,222,128,0); }
+  }
+
+  /* ---------- Tabs ---------- */
+  .tabs {
+    background: var(--ball-black);
+    position: sticky; top: 0; z-index: 5;
+    border-bottom: 1px solid #1f1f1f;
+  }
+  .tabs-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    padding: 0 20px;
+  }
+  .tab-btn {
+    background: none;
+    border: 0;
+    color: #9ca3af;
+    font-family: 'Anton', sans-serif;
+    font-size: 16px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 16px 8px;
+    margin-right: 28px;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: color .15s ease, border-color .15s ease;
+  }
+  .tab-btn:hover { color: var(--ball-white); }
+  .tab-btn[aria-selected="true"] {
+    color: var(--ball-white);
+    border-bottom-color: var(--ball-white);
+  }
+
+  /* ---------- Layout ---------- */
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 28px 20px 80px;
+    position: relative;
+    z-index: 1;
+  }
+  .view { display: none; }
+  .view[data-active="true"] { display: block; }
+
+  /* ---------- Section header ---------- */
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 0 0 18px;
+    color: var(--ball-white);
+  }
+  .section-head h2 {
+    font-family: 'Anton', sans-serif;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 26px;
+    margin: 0;
+  }
+  .section-head .pent {
+    width: 22px; height: 22px;
+  }
+
+  /* ---------- States ---------- */
+  .state {
+    background: var(--ball-white);
+    border-radius: 6px;
+    padding: 28px;
+    text-align: center;
+    box-shadow: var(--shadow-card);
+    font-family: 'Inter', sans-serif;
+  }
+  .state.error { border-left: 6px solid var(--live-red); text-align: left; }
+  .state h3 {
+    font-family: 'Anton', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 0 0 8px;
+  }
+  .state p { margin: 0; color: #4b5563; line-height: 1.6; }
+  .state code {
+    font-family: 'JetBrains Mono', monospace;
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+  }
+  .skeleton {
+    background: linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 50%, #e5e7eb 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+    border-radius: 4px;
+  }
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* ---------- Leaderboard ---------- */
+  .leaderboard {
+    list-style: none;
+    margin: 0; padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .lb-row {
+    background: var(--ball-white);
+    display: grid;
+    grid-template-columns: 64px 1fr auto auto;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 18px;
+    border-radius: 4px;
+    box-shadow: var(--shadow-card);
+    position: relative;
+  }
+  .lb-row .rank-mark {
+    display: flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px;
+    background: var(--ball-black);
+    color: var(--ball-white);
+    clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
+    font-family: 'Anton', sans-serif;
+    font-size: 22px;
+    line-height: 1;
+  }
+  .lb-row[data-rank="1"] .rank-mark { background: var(--gold); color: var(--ball-black); }
+  .lb-row[data-rank="2"] .rank-mark { background: var(--silver); color: var(--ball-black); }
+  .lb-row[data-rank="3"] .rank-mark { background: var(--bronze); color: var(--ball-white); }
+  .lb-row[data-rank="1"] { border-left: 6px solid var(--gold); }
+  .lb-row[data-rank="2"] { border-left: 6px solid var(--silver); }
+  .lb-row[data-rank="3"] { border-left: 6px solid var(--bronze); }
+
+  .lb-name {
+    font-weight: 600;
+    font-size: 17px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .lb-points {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 22px;
+    color: var(--ball-black);
+  }
+  .lb-points .lbl {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #6b7280;
+    display: block;
+    text-align: right;
+    margin-top: 2px;
+  }
+  .lb-exact {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: #6b7280;
+    border-left: 1px solid #e5e7eb;
+    padding-left: 16px;
+    min-width: 72px;
+    text-align: right;
+  }
+  .lb-exact strong { color: var(--ball-black); font-weight: 700; }
+
+  /* ---------- Fixtures ---------- */
+  .date-group + .date-group { margin-top: 28px; }
+  .date-label {
+    color: var(--ball-white);
+    font-family: 'Anton', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 18px;
+    margin: 0 0 12px 0;
+    padding: 0 4px 8px;
+    border-bottom: 2px solid rgba(255,255,255,0.25);
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  .date-label .count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: rgba(255,255,255,0.7);
+    letter-spacing: 0.04em;
+  }
+
+  .fixtures {
+    list-style: none;
+    margin: 0; padding: 0;
+    display: flex; flex-direction: column;
+    gap: 10px;
+  }
+
+  .fixture {
+    background: var(--ball-white);
+    border-radius: 4px;
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+  }
+  .fix-summary {
+    width: 100%;
+    background: none;
+    border: 0;
+    text-align: left;
+    cursor: pointer;
+    padding: 14px 16px;
+    display: grid;
+    grid-template-columns: 70px 1fr auto auto;
+    align-items: center;
+    gap: 14px;
+    font: inherit;
+    color: inherit;
+  }
+  .fix-summary:hover { background: #fafafa; }
+  .fix-summary:focus-visible {
+    outline: 3px solid var(--gold);
+    outline-offset: -3px;
+  }
+  .fix-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--ball-black);
+    line-height: 1.2;
+  }
+  .fix-time .ko {
+    display: block;
+    font-weight: 500;
+    font-size: 11px;
+    color: #6b7280;
+    margin-top: 2px;
+  }
+  .fix-teams {
+    font-weight: 600;
+    font-size: 15px;
+    min-width: 0;
+  }
+  .fix-teams .vs {
+    color: #9ca3af;
+    font-weight: 500;
+    margin: 0 8px;
+  }
+  .fix-teams .round-tag {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #6b7280;
+    margin-bottom: 4px;
+  }
+  .fix-score {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 22px;
+    color: var(--ball-black);
+    background: var(--ball-black);
+    color: var(--ball-white);
+    padding: 6px 12px;
+    border-radius: 3px;
+    letter-spacing: 0.04em;
+    min-width: 62px;
+    text-align: center;
+  }
+  .fix-score.pen {
+    background: var(--ball-black);
+    position: relative;
+  }
+  .fix-score .pens {
+    display: block;
+    font-family: 'Inter', sans-serif;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: var(--gold);
+    margin-top: 2px;
+  }
+  .fix-status {
+    font-family: 'Anton', sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 5px 10px;
+    border-radius: 2px;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .status-upcoming { background: #f3f4f6; color: #4b5563; }
+  .status-live {
+    background: var(--live-red); color: white;
+    animation: pulseRed 1.6s infinite;
+  }
+  @keyframes pulseRed {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+  .status-final { background: var(--ball-black); color: white; }
+
+  .chev {
+    width: 14px; height: 14px;
+    transition: transform .2s ease;
+    color: #9ca3af;
+    flex-shrink: 0;
+  }
+  .fixture[aria-expanded="true"] .chev { transform: rotate(180deg); }
+
+  /* ---------- Predictions detail ---------- */
+  .fix-detail {
+    border-top: 1px solid #e5e7eb;
+    padding: 18px 16px;
+    background: #fafafa;
+    display: none;
+  }
+  .fixture[aria-expanded="true"] .fix-detail { display: block; }
+  .pred-locked {
+    text-align: center;
+    color: #6b7280;
+    font-size: 14px;
+    padding: 8px;
+  }
+  .pred-locked .lock-icon { font-size: 18px; }
+
+  .pred-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  .pred-table thead th {
+    text-align: left;
+    font-family: 'Anton', sans-serif;
+    font-weight: 400;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #6b7280;
+    padding: 6px 8px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  .pred-table thead th.right { text-align: right; }
+  .pred-table thead th.center { text-align: center; }
+  .pred-table tbody td {
+    padding: 8px;
+    border-bottom: 1px solid #f3f4f6;
+    vertical-align: middle;
+  }
+  .pred-table tbody tr:last-child td { border-bottom: 0; }
+  .pred-name { font-weight: 500; }
+  .pred-score {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 15px;
+    text-align: center;
+    letter-spacing: 0.04em;
+    color: var(--ball-black);
+  }
+  .pred-adv {
+    font-size: 11px;
+    color: #6b7280;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-align: center;
+  }
+  .pts-badge {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 4px 10px;
+    border-radius: 2px;
+    min-width: 32px;
+    text-align: center;
+    color: var(--ball-black);
+  }
+  .pts-4 { background: var(--pts-4); color: white; }
+  .pts-3 { background: var(--pts-3); }
+  .pts-2 { background: var(--pts-2); }
+  .pts-1 { background: var(--pts-1); }
+  .pts-0 { background: var(--pts-0); color: #9ca3af; }
+
+  /* Highlight an exact-score prediction row */
+  .pred-table tr.exact .pred-score {
+    color: var(--pts-4);
+  }
+
+  /* ---------- Mobile ---------- */
+  @media (max-width: 720px) {
+    .header-inner { grid-template-columns: auto 1fr; }
+    .updated { grid-column: 1 / -1; text-align: left; }
+    .lb-row {
+      grid-template-columns: 52px 1fr auto;
+      gap: 12px;
+      padding: 12px 14px;
+    }
+    .lb-row .rank-mark { width: 38px; height: 38px; font-size: 18px; }
+    .lb-name { font-size: 15px; }
+    .lb-points { font-size: 18px; }
+    .lb-exact { display: none; }
+    .fix-summary {
+      grid-template-columns: 62px 1fr auto;
+      gap: 10px;
+      padding: 12px;
+    }
+    .chev { display: none; }
+    .fix-status { display: none; }
+    .fix-teams { font-size: 14px; }
+    .fix-score { font-size: 18px; min-width: 54px; padding: 5px 8px; }
+    .pred-table thead th { font-size: 10px; }
+    .pred-name { font-size: 13px; }
+    .pred-score { font-size: 14px; }
+    .pred-adv { font-size: 10px; }
+    /* On mobile, status moves to inside the team line */
+    .fix-teams .mob-status { display: inline-block; }
+  }
+  .fix-teams .mob-status { display: none; margin-left: 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; }
+  .fix-teams .mob-status.status-live { color: var(--live-red); }
+
+  /* Setup screen */
+  .setup {
+    background: var(--ball-white);
+    border-radius: 6px;
+    padding: 28px;
+    box-shadow: var(--shadow-card);
+    max-width: 640px;
+    margin: 40px auto;
+  }
+  .setup h3 {
+    font-family: 'Anton', sans-serif;
+    font-size: 22px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin: 0 0 14px;
+  }
+  .setup p { color: #4b5563; line-height: 1.6; margin: 0 0 14px; }
+  .setup ol { margin: 0 0 16px; padding-left: 20px; color: #4b5563; line-height: 1.8; }
+  .setup input {
+    width: 100%;
+    padding: 10px 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    border: 1px solid #d1d5db;
+    border-radius: 3px;
+    margin-bottom: 12px;
+  }
+  .setup button {
+    background: var(--ball-black);
+    color: var(--ball-white);
+    border: 0;
+    padding: 10px 18px;
+    font-family: 'Anton', sans-serif;
+    letter-spacing: 0.12em;
+    font-size: 14px;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+  .setup button:hover { background: #1f2937; }
+</style>
+</head>
+<body>
+
+<!-- Reusable SVG defs -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- Classic football: white panel with black pentagons -->
+    <symbol id="football" viewBox="0 0 48 48">
+      <circle cx="24" cy="24" r="22" fill="#fafafa" stroke="#0a0a0a" stroke-width="1.5"/>
+      <!-- center pentagon -->
+      <polygon points="24,14 32,20 29,30 19,30 16,20" fill="#0a0a0a"/>
+      <!-- three surrounding partial pentagons -->
+      <polygon points="6,18 14,12 16,20 10,28 3,24" fill="#0a0a0a"/>
+      <polygon points="42,18 34,12 32,20 38,28 45,24" fill="#0a0a0a"/>
+      <polygon points="24,46 16,42 19,32 29,32 32,42" fill="#0a0a0a"/>
+      <!-- stitching lines -->
+      <line x1="24" y1="14" x2="24" y2="6" stroke="#0a0a0a" stroke-width="1"/>
+      <line x1="16" y1="20" x2="10" y2="16" stroke="#0a0a0a" stroke-width="1"/>
+      <line x1="32" y1="20" x2="38" y2="16" stroke="#0a0a0a" stroke-width="1"/>
+      <line x1="19" y1="30" x2="16" y2="38" stroke="#0a0a0a" stroke-width="1"/>
+      <line x1="29" y1="30" x2="32" y2="38" stroke="#0a0a0a" stroke-width="1"/>
+    </symbol>
+    <symbol id="pent" viewBox="0 0 22 22">
+      <polygon points="11,2 21,9 17,21 5,21 1,9" fill="currentColor"/>
+    </symbol>
+    <symbol id="chev" viewBox="0 0 14 14">
+      <path d="M2 5l5 5 5-5" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+  </defs>
+</svg>
+
+<header>
+  <div class="header-inner">
+    <svg class="ball" aria-hidden="true"><use href="#football"/></svg>
+    <h1 class="site-title">
+      Fellowship Football
+      <span class="sub">World Cup 2026</span>
+    </h1>
+    <div class="updated" id="updated">
+      <span class="dot"></span><span id="updated-text">Loading</span>
+    </div>
+  </div>
+</header>
+
+<nav class="tabs" role="tablist">
+  <div class="tabs-inner">
+    <button class="tab-btn" role="tab" aria-selected="true" data-tab="leaderboard">League table</button>
+    <button class="tab-btn" role="tab" aria-selected="false" data-tab="fixtures">Fixtures</button>
+  </div>
+</nav>
+
+<main>
+  <section class="view" data-view="leaderboard" data-active="true">
+    <div class="section-head">
+      <svg class="pent" aria-hidden="true" style="color:#fff"><use href="#pent"/></svg>
+      <h2>Standings</h2>
+    </div>
+    <div id="leaderboard-content">
+      <div class="state"><h3>Loading the table</h3><p>Just a moment.</p></div>
+    </div>
+  </section>
+
+  <section class="view" data-view="fixtures">
+    <div class="section-head">
+      <svg class="pent" aria-hidden="true" style="color:#fff"><use href="#pent"/></svg>
+      <h2>Fixtures &amp; predictions</h2>
+    </div>
+    <div id="fixtures-content">
+      <div class="state"><h3>Loading the schedule</h3><p>Just a moment.</p></div>
+    </div>
+  </section>
+</main>
+
+<script>
+// =============================================================
+// CONFIG — paste your Apps Script Web App URL here
+// =============================================================
+const ENDPOINT = "https://script.google.com/macros/s/AKfycbziswBrtOSRGBaDQ4J5X2ZWznqD96kBZPhaj1ul_KIFPt0mMtEbeRsPnxu-VG3RzXHjBA/exec";
+
+// Refresh every 60 seconds while the tab is visible.
+const REFRESH_MS = 60_000;
+
+// =============================================================
+// State
+// =============================================================
+let lastData = null;
+let refreshTimer = null;
+
+// =============================================================
+// Tab switching
+// =============================================================
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach(b => b.setAttribute("aria-selected", "false"));
+    btn.setAttribute("aria-selected", "true");
+    const target = btn.dataset.tab;
+    document.querySelectorAll(".view").forEach(v => {
+      v.dataset.active = (v.dataset.view === target) ? "true" : "false";
+    });
+  });
+});
+
+// =============================================================
+// Fetch & render
+// =============================================================
+async function load() {
+  if (!ENDPOINT || ENDPOINT.startsWith("PASTE_")) {
+    showSetup();
+    return;
+  }
+  try {
+    const res = await fetch(ENDPOINT, { redirect: "follow", cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    lastData = data;
+    renderLeaderboard(data.leaderboard || []);
+    renderFixtures(data.fixtures || []);
+    setUpdated(new Date());
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+function setUpdated(d) {
+  const t = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  document.getElementById("updated-text").textContent = `Live • Updated ${t}`;
+}
+
+// =============================================================
+// Setup / error screens
+// =============================================================
+function showSetup() {
+  const html = `
+    <div class="setup">
+      <h3>One more step to go live</h3>
+      <p>This page is ready, but it needs to know where to fetch the data from. Paste your Google Apps Script Web App URL in the page source.</p>
+      <ol>
+        <li>In your Sheet, open <strong>Extensions → Apps Script</strong>.</li>
+        <li>Add the <code>doGet</code> function from the setup notes.</li>
+        <li><strong>Deploy → New deployment</strong>, type <em>Web app</em>, execute as <em>Me</em>, access <em>Anyone</em>.</li>
+        <li>Copy the deployment URL and paste it into <code>ENDPOINT</code> near the top of <code>index.html</code>.</li>
+      </ol>
+      <p>Then redeploy this page.</p>
+    </div>
+  `;
+  document.getElementById("leaderboard-content").innerHTML = html;
+  document.getElementById("fixtures-content").innerHTML = "";
+  document.getElementById("updated-text").textContent = "Not connected";
+}
+
+function showError(msg) {
+  const html = `
+    <div class="state error">
+      <h3>Could not load data</h3>
+      <p>${escapeHtml(msg)}. The page will keep trying. If this persists, check that the Apps Script web app is deployed with access set to <em>Anyone</em>.</p>
+    </div>
+  `;
+  document.getElementById("leaderboard-content").innerHTML = html;
+  document.getElementById("fixtures-content").innerHTML = "";
+}
+
+// =============================================================
+// Leaderboard rendering
+// =============================================================
+function renderLeaderboard(rows) {
+  if (!rows.length) {
+    document.getElementById("leaderboard-content").innerHTML =
+      `<div class="state"><h3>No predictions yet</h3><p>Standings will appear once games have been played.</p></div>`;
+    return;
+  }
+  const sorted = [...rows].sort((a, b) => {
+    if (a.rank !== b.rank) return a.rank - b.rank;
+    return (b.points || 0) - (a.points || 0);
+  });
+  const items = sorted.map(r => `
+    <li class="lb-row" data-rank="${r.rank}">
+      <div class="rank-mark">${r.rank}</div>
+      <div class="lb-name">${escapeHtml(r.player || "—")}</div>
+      <div class="lb-points">${r.points ?? 0}<span class="lbl">pts</span></div>
+      <div class="lb-exact"><strong>${r.exact ?? 0}</strong> exact</div>
+    </li>
+  `).join("");
+  document.getElementById("leaderboard-content").innerHTML = `<ol class="leaderboard">${items}</ol>`;
+}
+
+// =============================================================
+// Fixtures rendering
+// =============================================================
+function renderFixtures(fixtures) {
+  if (!fixtures.length) {
+    document.getElementById("fixtures-content").innerHTML =
+      `<div class="state"><h3>No fixtures loaded</h3><p>Check your Sheet's Fixtures tab.</p></div>`;
+    return;
+  }
+
+  // Group by local-date string
+  const groups = [];
+  const byDay = new Map();
+  fixtures.forEach(f => {
+    const key = localDayKey(f.kickoffISO) || f.date || "TBD";
+    if (!byDay.has(key)) {
+      byDay.set(key, { key, label: localDayLabel(f.kickoffISO) || f.date || "Date TBD", items: [] });
+      groups.push(byDay.get(key));
+    }
+    byDay.get(key).items.push(f);
+  });
+
+  const html = groups.map(g => `
+    <div class="date-group">
+      <h3 class="date-label">
+        ${escapeHtml(g.label)}
+        <span class="count">${g.items.length} ${g.items.length === 1 ? "match" : "matches"}</span>
+      </h3>
+      <ul class="fixtures">
+        ${g.items.map(renderFixture).join("")}
+      </ul>
+    </div>
+  `).join("");
+
+  document.getElementById("fixtures-content").innerHTML = html;
+
+  // Wire up expand/collapse
+  document.querySelectorAll(".fixture").forEach(fx => {
+    const btn = fx.querySelector(".fix-summary");
+    btn.addEventListener("click", () => {
+      const open = fx.getAttribute("aria-expanded") === "true";
+      fx.setAttribute("aria-expanded", open ? "false" : "true");
+    });
+  });
+}
+
+function renderFixture(f) {
+  const status = getStatus(f);
+  const koLocal = localKickoffLabel(f.kickoffISO);
+  const homeName = escapeHtml(f.home || "TBD");
+  const awayName = escapeHtml(f.away || "TBD");
+
+  let scoreOrStatus;
+  if (status === "final") {
+    const pens = (f.actualHome === f.actualAway && f.advancer) ? `<span class="pens">${f.advancer === "Home" ? homeShort(f.home) : homeShort(f.away)} on pens</span>` : "";
+    scoreOrStatus = `<div class="fix-score">${f.actualHome}–${f.actualAway}${pens}</div>`;
+  } else if (status === "live") {
+    scoreOrStatus = `<div class="fix-status status-live">Live</div>`;
+  } else {
+    scoreOrStatus = `<div class="fix-status status-upcoming">Upcoming</div>`;
+  }
+
+  const roundTag = f.round ? `<span class="round-tag">${escapeHtml(f.round)}</span>` : "";
+
+  return `
+    <li class="fixture" aria-expanded="false">
+      <button class="fix-summary" aria-label="Match details for ${homeName} vs ${awayName}">
+        <div class="fix-time">
+          ${koLocal.time || "—"}
+          ${koLocal.tz ? `<span class="ko">${escapeHtml(koLocal.tz)}</span>` : ""}
+        </div>
+        <div class="fix-teams">
+          ${roundTag}
+          ${homeName}<span class="vs">vs</span>${awayName}
+          ${status === "live" ? `<span class="mob-status status-live">LIVE</span>` : ""}
+        </div>
+        ${scoreOrStatus}
+        <svg class="chev" aria-hidden="true"><use href="#chev"/></svg>
+      </button>
+      <div class="fix-detail">${renderPredictions(f, status)}</div>
+    </li>
+  `;
+}
+
+function renderPredictions(f, status) {
+  const preds = f.predictions || [];
+  if (!preds.length) {
+    return `<div class="pred-locked">No predictions on file.</div>`;
+  }
+
+  const showPoints = (status === "final");
+  const showAdv = (f.stage === "Knockout");
+
+  // Sort: by points (high to low) if completed, else by player name
+  const sorted = [...preds].sort((a, b) => {
+    if (showPoints) {
+      const diff = (b.points ?? 0) - (a.points ?? 0);
+      if (diff !== 0) return diff;
+    }
+    return (a.player || "").localeCompare(b.player || "");
+  });
+
+  const rows = sorted.map(p => {
+    const isExact = showPoints && p.points === 4;
+    const score = (p.home != null && p.away != null) ? `${p.home}–${p.away}` : "—";
+    let advCell = "";
+    if (showAdv && p.advancer) {
+      advCell = `<td class="pred-adv">${p.advancer === "Home" ? "→ " + homeShort(f.home) : "→ " + homeShort(f.away)}</td>`;
+    } else if (showAdv) {
+      advCell = `<td class="pred-adv">—</td>`;
+    }
+    const ptsCell = showPoints
+      ? `<td style="text-align:right"><span class="pts-badge pts-${p.points ?? 0}">${p.points ?? 0}</span></td>`
+      : "";
+    return `
+      <tr${isExact ? ' class="exact"' : ""}>
+        <td class="pred-name">${escapeHtml(p.player || "—")}</td>
+        <td class="pred-score">${score}</td>
+        ${advCell}
+        ${ptsCell}
+      </tr>
+    `;
+  }).join("");
+
+  return `
+    <table class="pred-table">
+      <thead>
+        <tr>
+          <th>Player</th>
+          <th class="center">Pick</th>
+          ${showAdv ? '<th class="center">Advancer</th>' : ""}
+          ${showPoints ? '<th class="right">Pts</th>' : ""}
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+// =============================================================
+// Helpers
+// =============================================================
+function getStatus(f) {
+  if (f.actualHome != null && f.actualAway != null && f.actualHome !== "" && f.actualAway !== "") return "final";
+  if (f.kickoffISO) {
+    const ko = new Date(f.kickoffISO);
+    if (!isNaN(ko) && Date.now() >= ko.getTime()) return "live";
+  } else if (f.kickedOff) {
+    return "live";
+  }
+  return "upcoming";
+}
+
+function localKickoffLabel(iso) {
+  if (!iso) return { time: "", tz: "" };
+  const d = new Date(iso);
+  if (isNaN(d)) return { time: "", tz: "" };
+  const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const tz = new Intl.DateTimeFormat([], { timeZoneName: "short" })
+    .formatToParts(d)
+    .find(p => p.type === "timeZoneName")?.value || "";
+  return { time, tz };
+}
+
+function localDayKey(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d)) return null;
+  return d.toLocaleDateString([], { year: "numeric", month: "2-digit", day: "2-digit" });
+}
+
+function localDayLabel(iso) {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d)) return null;
+  return d.toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" });
+}
+
+function homeShort(name) {
+  if (!name) return "";
+  // Trim common long names for the pens label
+  const map = { "Bosnia and Herzegovina": "Bosnia" };
+  return map[name] || name;
+}
+
+function escapeHtml(s) {
+  if (s == null) return "";
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+// =============================================================
+// Auto-refresh loop, paused when tab hidden
+// =============================================================
+function startRefresh() {
+  stopRefresh();
+  refreshTimer = setInterval(() => {
+    if (document.visibilityState === "visible") load();
+  }, REFRESH_MS);
+}
+function stopRefresh() {
+  if (refreshTimer) clearInterval(refreshTimer);
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") load();
+});
+
+// =============================================================
+// Go
+// =============================================================
+load();
+startRefresh();
+</script>
+
+</body>
+</html>
