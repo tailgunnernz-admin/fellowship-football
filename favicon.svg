@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <!-- Classic football: white panel with black pentagons -->
+  <circle cx="24" cy="24" r="22" fill="#fafafa" stroke="#0a0a0a" stroke-width="1.5"/>
+  <!-- center pentagon -->
+  <polygon points="24,14 32,20 29,30 19,30 16,20" fill="#0a0a0a"/>
+  <!-- three surrounding partial pentagons -->
+  <polygon points="6,18 14,12 16,20 10,28 3,24" fill="#0a0a0a"/>
+  <polygon points="42,18 34,12 32,20 38,28 45,24" fill="#0a0a0a"/>
+  <polygon points="24,46 16,42 19,32 29,32 32,42" fill="#0a0a0a"/>
+  <!-- stitching lines -->
+  <line x1="24" y1="14" x2="24" y2="6" stroke="#0a0a0a" stroke-width="1"/>
+  <line x1="16" y1="20" x2="10" y2="16" stroke="#0a0a0a" stroke-width="1"/>
+  <line x1="32" y1="20" x2="38" y2="16" stroke="#0a0a0a" stroke-width="1"/>
+  <line x1="19" y1="30" x2="16" y2="38" stroke="#0a0a0a" stroke-width="1"/>
+  <line x1="29" y1="30" x2="32" y2="38" stroke="#0a0a0a" stroke-width="1"/>
+</svg>
