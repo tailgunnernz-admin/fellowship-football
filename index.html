@@ -511,14 +511,19 @@
     .header-inner { grid-template-columns: auto 1fr; }
     .updated { grid-column: 1 / -1; text-align: left; }
     .lb-row {
-      grid-template-columns: 52px 1fr auto;
-      gap: 12px;
+      grid-template-columns: 44px 1fr auto auto;
+      gap: 10px;
       padding: 12px 14px;
     }
     .lb-row .rank-mark { width: 38px; height: 38px; font-size: 18px; }
     .lb-name { font-size: 15px; }
     .lb-points { font-size: 18px; }
-    .lb-exact { display: none; }
+    .lb-exact {
+      font-size: 11px;
+      min-width: 0;
+      padding-left: 10px;
+      white-space: nowrap;
+    }
     .fix-summary {
       grid-template-columns: 62px 1fr auto;
       gap: 10px;
