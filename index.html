@@ -425,6 +425,12 @@
     color: var(--gold);
     margin-top: 2px;
   }
+  .fix-live {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+  }
   .fix-status {
     font-family: 'Anton', sans-serif;
     font-size: 12px;
@@ -904,12 +910,19 @@ function renderFixture(f) {
   const homeName = escapeHtml(f.home || "TBD");
   const awayName = escapeHtml(f.away || "TBD");
 
+  const hasScore = f.actualHome != null && f.actualAway != null
+    && f.actualHome !== "" && f.actualAway !== "";
+  const pens = (hasScore && f.actualHome === f.actualAway && f.advancer)
+    ? `<span class="pens">${f.advancer === "Home" ? homeShort(f.home) : homeShort(f.away)} on pens</span>`
+    : "";
+  const scoreBox = hasScore ? `<div class="fix-score">${f.actualHome}–${f.actualAway}${pens}</div>` : "";
+
   let scoreOrStatus;
-  if (status === "final") {
-    const pens = (f.actualHome === f.actualAway && f.advancer) ? `<span class="pens">${f.advancer === "Home" ? homeShort(f.home) : homeShort(f.away)} on pens</span>` : "";
-    scoreOrStatus = `<div class="fix-score">${f.actualHome}–${f.actualAway}${pens}</div>`;
-  } else if (status === "live") {
-    scoreOrStatus = `<div class="fix-status status-live">Live</div>`;
+  if (status === "live") {
+    // Live games always show the LIVE tag, plus the running score if one's in.
+    scoreOrStatus = `<div class="fix-live"><span class="fix-status status-live">Live</span>${scoreBox}</div>`;
+  } else if (status === "final") {
+    scoreOrStatus = scoreBox;
   } else {
     scoreOrStatus = `<div class="fix-status status-upcoming">Upcoming</div>`;
   }
@@ -994,15 +1007,25 @@ function renderPredictions(f, status) {
 // =============================================================
 // Helpers
 // =============================================================
+// A game counts as live for this long after kick-off; after that, a game
+// with a score is treated as the final result.
+const LIVE_WINDOW_MS = 2 * 60 * 60 * 1000; // 2 hours
+
 function getStatus(f) {
-  if (f.actualHome != null && f.actualAway != null && f.actualHome !== "" && f.actualAway !== "") return "final";
+  const hasScore = f.actualHome != null && f.actualAway != null
+    && f.actualHome !== "" && f.actualAway !== "";
   if (f.kickoffISO) {
     const ko = new Date(f.kickoffISO);
-    if (!isNaN(ko) && Date.now() >= ko.getTime()) return "live";
-  } else if (f.kickedOff) {
-    return "live";
+    if (!isNaN(ko)) {
+      const now = Date.now();
+      if (now < ko.getTime()) return hasScore ? "final" : "upcoming";
+      if (now < ko.getTime() + LIVE_WINDOW_MS) return "live";
+      return hasScore ? "final" : "live";
+    }
   }
-  return "upcoming";
+  // No reliable kick-off time: fall back to the manual flag.
+  if (hasScore) return f.kickedOff ? "live" : "final";
+  return f.kickedOff ? "live" : "upcoming";
 }
 
 function localKickoffLabel(iso) {
