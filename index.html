@@ -425,6 +425,12 @@
     color: var(--gold);
     margin-top: 2px;
   }
+  .fix-live {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+  }
   .fix-status {
     font-family: 'Anton', sans-serif;
     font-size: 12px;
@@ -904,14 +910,25 @@ function renderFixture(f) {
   const homeName = escapeHtml(f.home || "TBD");
   const awayName = escapeHtml(f.away || "TBD");
 
+  const live = isLive(f);
+  const hasScore = f.actualHome != null && f.actualAway != null
+    && f.actualHome !== "" && f.actualAway !== "";
+  const pens = (hasScore && f.actualHome === f.actualAway && f.advancer)
+    ? `<span class="pens">${f.advancer === "Home" ? homeShort(f.home) : homeShort(f.away)} on pens</span>`
+    : "";
+  const scoreBox = hasScore ? `<div class="fix-score">${f.actualHome}–${f.actualAway}${pens}</div>` : "";
+
   let scoreOrStatus;
-  if (status === "final") {
-    const pens = (f.actualHome === f.actualAway && f.advancer) ? `<span class="pens">${f.advancer === "Home" ? homeShort(f.home) : homeShort(f.away)} on pens</span>` : "";
-    scoreOrStatus = `<div class="fix-score">${f.actualHome}–${f.actualAway}${pens}</div>`;
-  } else if (status === "live") {
-    scoreOrStatus = `<div class="fix-status status-live">Live</div>`;
-  } else {
+  if (live) {
+    // Anything that kicked off within the live window shows the LIVE tag,
+    // plus the score if one has been entered.
+    scoreOrStatus = `<div class="fix-live"><span class="fix-status status-live">Live</span>${scoreBox}</div>`;
+  } else if (hasScore) {
+    scoreOrStatus = scoreBox;
+  } else if (status === "upcoming") {
     scoreOrStatus = `<div class="fix-status status-upcoming">Upcoming</div>`;
+  } else {
+    scoreOrStatus = "";
   }
 
   const roundTag = f.round ? `<span class="round-tag">${escapeHtml(f.round)}</span>` : "";
@@ -926,7 +943,7 @@ function renderFixture(f) {
         <div class="fix-teams">
           ${roundTag}
           ${homeName}<span class="vs">vs</span>${awayName}
-          ${status === "live" ? `<span class="mob-status status-live">LIVE</span>` : ""}
+          ${live ? `<span class="mob-status status-live">LIVE</span>` : ""}
         </div>
         ${scoreOrStatus}
         <svg class="chev" aria-hidden="true"><use href="#chev"/></svg>
@@ -1003,6 +1020,18 @@ function getStatus(f) {
     return "live";
   }
   return "upcoming";
+}
+
+// A fixture is shown as LIVE if it kicked off within this window, measured
+// against the viewer's current clock.
+const LIVE_WINDOW_MS = (2 * 60 + 10) * 60 * 1000; // 2 hours 10 minutes
+
+function isLive(f) {
+  if (!f.kickoffISO) return false;
+  const ko = new Date(f.kickoffISO);
+  if (isNaN(ko)) return false;
+  const elapsed = Date.now() - ko.getTime();
+  return elapsed >= 0 && elapsed < LIVE_WINDOW_MS;
 }
 
 function localKickoffLabel(iso) {
