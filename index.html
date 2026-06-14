@@ -820,8 +820,9 @@ function renderPlayerDetail(playerName, fixtures) {
     return `<div class="lb-empty">No completed games yet.</div>`;
   }
 
+  const target = normalizeName(playerName);
   const rows = finals.map(f => {
-    const p = (f.predictions || []).find(x => x.player === playerName);
+    const p = (f.predictions || []).find(x => normalizeName(x.player) === target);
     const pick = (p && p.home != null && p.away != null) ? `${p.home}–${p.away}` : "—";
     const actual = `${f.actualHome}–${f.actualAway}`;
     const pts = p ? (p.points ?? 0) : 0;
@@ -1034,6 +1035,12 @@ function homeShort(name) {
   // Trim common long names for the pens label
   const map = { "Bosnia and Herzegovina": "Bosnia" };
   return map[name] || name;
+}
+
+// Match player names tolerantly across the standings and predictions data:
+// ignore surrounding/repeated whitespace and letter case.
+function normalizeName(s) {
+  return String(s == null ? "" : s).trim().toLowerCase().replace(/\s+/g, " ");
 }
 
 function escapeHtml(s) {
