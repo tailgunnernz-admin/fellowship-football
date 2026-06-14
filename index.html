@@ -227,14 +227,29 @@
   }
   .lb-row {
     background: var(--ball-white);
-    display: grid;
-    grid-template-columns: 64px 1fr auto auto;
-    align-items: center;
-    gap: 16px;
-    padding: 14px 18px;
     border-radius: 4px;
     box-shadow: var(--shadow-card);
     position: relative;
+    overflow: hidden;
+  }
+  .lb-summary {
+    width: 100%;
+    background: none;
+    border: 0;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+    display: grid;
+    grid-template-columns: 64px 1fr auto auto auto;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 18px;
+  }
+  .lb-summary:hover { background: #fafafa; }
+  .lb-summary:focus-visible {
+    outline: 3px solid var(--gold);
+    outline-offset: -3px;
   }
   .lb-row .rank-mark {
     display: flex; align-items: center; justify-content: center;
@@ -287,6 +302,17 @@
     text-align: right;
   }
   .lb-exact strong { color: var(--ball-black); font-weight: 700; }
+  .lb-row[aria-expanded="true"] .chev { transform: rotate(180deg); }
+  .lb-detail {
+    border-top: 1px solid #e5e7eb;
+    padding: 14px 16px;
+    background: #fafafa;
+    display: none;
+  }
+  .lb-row[aria-expanded="true"] .lb-detail { display: block; }
+  .lb-detail .vs-mini { color: #9ca3af; font-weight: 500; margin: 0 4px; }
+  .lb-detail .lb-actual { color: #6b7280; }
+  .lb-empty { text-align: center; color: #6b7280; font-size: 14px; padding: 8px; }
 
   /* ---------- Fixtures ---------- */
   .date-group + .date-group { margin-top: 28px; }
@@ -510,7 +536,7 @@
   @media (max-width: 720px) {
     .header-inner { grid-template-columns: auto 1fr; }
     .updated { grid-column: 1 / -1; text-align: left; }
-    .lb-row {
+    .lb-summary {
       grid-template-columns: 44px 1fr auto auto;
       gap: 10px;
       padding: 12px 14px;
@@ -758,15 +784,71 @@ function renderLeaderboard(rows) {
     if (a.rank !== b.rank) return a.rank - b.rank;
     return (b.points || 0) - (a.points || 0);
   });
+  const fixtures = (lastData && lastData.fixtures) || [];
   const items = sorted.map(r => `
-    <li class="lb-row" data-rank="${r.rank}">
-      <div class="rank-mark">${r.rank}</div>
-      <div class="lb-name">${escapeHtml(r.player || "—")}</div>
-      <div class="lb-points">${r.points ?? 0}<span class="lbl">pts</span></div>
-      <div class="lb-exact"><strong>${r.exact ?? 0}</strong> exact</div>
+    <li class="lb-row" data-rank="${r.rank}" aria-expanded="false">
+      <button class="lb-summary" aria-label="Show ${escapeHtml(r.player || "player")}'s completed picks">
+        <div class="rank-mark">${r.rank}</div>
+        <div class="lb-name">${escapeHtml(r.player || "—")}</div>
+        <div class="lb-points">${r.points ?? 0}<span class="lbl">pts</span></div>
+        <div class="lb-exact"><strong>${r.exact ?? 0}</strong> exact</div>
+        <svg class="chev" aria-hidden="true"><use href="#chev"/></svg>
+      </button>
+      <div class="lb-detail">${renderPlayerDetail(r.player, fixtures)}</div>
     </li>
   `).join("");
   document.getElementById("leaderboard-content").innerHTML = `<ol class="leaderboard">${items}</ol>`;
+
+  // Wire up expand/collapse
+  document.querySelectorAll(".lb-row").forEach(row => {
+    const btn = row.querySelector(".lb-summary");
+    btn.addEventListener("click", () => {
+      const open = row.getAttribute("aria-expanded") === "true";
+      row.setAttribute("aria-expanded", open ? "false" : "true");
+    });
+  });
+}
+
+// For one player, list every completed game with their pick, the actual
+// score and the points they earned for that game.
+function renderPlayerDetail(playerName, fixtures) {
+  const finals = (fixtures || [])
+    .filter(f => getStatus(f) === "final")
+    .sort((a, b) => new Date(b.kickoffISO || 0) - new Date(a.kickoffISO || 0));
+
+  if (!finals.length) {
+    return `<div class="lb-empty">No completed games yet.</div>`;
+  }
+
+  const rows = finals.map(f => {
+    const p = (f.predictions || []).find(x => x.player === playerName);
+    const pick = (p && p.home != null && p.away != null) ? `${p.home}–${p.away}` : "—";
+    const actual = `${f.actualHome}–${f.actualAway}`;
+    const pts = p ? (p.points ?? 0) : 0;
+    const isExact = pts === 4;
+    return `
+      <tr${isExact ? ' class="exact"' : ""}>
+        <td class="pred-name">${escapeHtml(homeShort(f.home))}<span class="vs-mini">v</span>${escapeHtml(homeShort(f.away))}</td>
+        <td class="pred-score">${pick}</td>
+        <td class="pred-score lb-actual">${actual}</td>
+        <td style="text-align:right"><span class="pts-badge pts-${pts}">${pts}</span></td>
+      </tr>
+    `;
+  }).join("");
+
+  return `
+    <table class="pred-table">
+      <thead>
+        <tr>
+          <th>Match</th>
+          <th class="center">Pick</th>
+          <th class="center">Result</th>
+          <th class="right">Pts</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
 }
 
 // =============================================================
