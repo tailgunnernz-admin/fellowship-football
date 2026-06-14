@@ -565,6 +565,8 @@
     .fix-status { display: none; }
     .fix-teams { font-size: 14px; }
     .fix-score { font-size: 18px; min-width: 54px; padding: 5px 8px; }
+    /* On mobile the LIVE tag is hidden, so flag a live game via a red score. */
+    .fix-score.live { background: var(--live-red); }
     .pred-table thead th { font-size: 10px; }
     .pred-name { font-size: 13px; }
     .pred-score { font-size: 14px; }
@@ -916,7 +918,7 @@ function renderFixture(f) {
   const pens = (hasScore && f.actualHome === f.actualAway && f.advancer)
     ? `<span class="pens">${f.advancer === "Home" ? homeShort(f.home) : homeShort(f.away)} on pens</span>`
     : "";
-  const scoreBox = hasScore ? `<div class="fix-score">${f.actualHome}–${f.actualAway}${pens}</div>` : "";
+  const scoreBox = hasScore ? `<div class="fix-score${live ? " live" : ""}">${f.actualHome}–${f.actualAway}${pens}</div>` : "";
 
   let scoreOrStatus;
   if (live) {
@@ -943,7 +945,7 @@ function renderFixture(f) {
         <div class="fix-teams">
           ${roundTag}
           ${homeName}<span class="vs">vs</span>${awayName}
-          ${live ? `<span class="mob-status status-live">LIVE</span>` : ""}
+          ${live && !hasScore ? `<span class="mob-status status-live">LIVE</span>` : ""}
         </div>
         ${scoreOrStatus}
         <svg class="chev" aria-hidden="true"><use href="#chev"/></svg>
