@@ -1185,30 +1185,47 @@ function streakRows(finals) {
 
 // Biggest single-match upsets: points earned x share of entrants who missed.
 function upsetRows(finals) {
-  const entries = [];
+  const groups = [];
   finals.forEach(f => {
     const preds = f.predictions || [];
     const n = preds.length;
     if (!n) return;
     const wrongShare = preds.filter(p => (p.points ?? 0) <= 0).length / n;
+    // Group everyone who made the same exact call on this match into one entry.
+    const byPick = new Map();
     preds.forEach(p => {
       const pts = p.points ?? 0;
       const rating = pts * wrongShare;
       if (rating <= 0) return;
-      entries.push({
-        name: (p.player || "").trim(), rating, pts,
-        home: f.home, away: f.away,
-        actualHome: f.actualHome, actualAway: f.actualAway,
-        pickHome: p.home, pickAway: p.away
-      });
+      const key = `${p.home}|${p.away}|${p.advancer ?? ""}`;
+      if (!byPick.has(key)) {
+        byPick.set(key, {
+          names: [], rating, pts,
+          home: f.home, away: f.away,
+          actualHome: f.actualHome, actualAway: f.actualAway,
+          pickHome: p.home, pickAway: p.away
+        });
+      }
+      byPick.get(key).names.push((p.player || "").trim());
+    });
+    byPick.forEach(g => {
+      g.names.sort((a, b) => a.localeCompare(b));
+      groups.push(g);
     });
   });
-  entries.sort((a, b) => b.rating - a.rating || b.pts - a.pts || a.name.localeCompare(b.name));
-  return entries.slice(0, 5).map((e, i) => {
-    const pick = (e.pickHome != null && e.pickAway != null) ? `${e.pickHome}–${e.pickAway}` : "—";
-    const sub = `${escapeHtml(homeShort(e.home))} ${e.actualHome}–${e.actualAway} ${escapeHtml(homeShort(e.away))} · called ${pick}`;
-    return recordRow(i + 1, e.name, `${e.pts} <span class="record-unit">pts</span>`, sub);
+  groups.sort((a, b) => b.rating - a.rating || b.pts - a.pts || a.names[0].localeCompare(b.names[0]));
+  return groups.slice(0, 5).map((g, i) => {
+    const pick = (g.pickHome != null && g.pickAway != null) ? `${g.pickHome}–${g.pickAway}` : "—";
+    const sub = `${escapeHtml(homeShort(g.home))} ${g.actualHome}–${g.actualAway} ${escapeHtml(homeShort(g.away))} · called ${pick}`;
+    return recordRow(i + 1, joinNames(g.names), `${g.pts} <span class="record-unit">pts</span>`, sub);
   }).join("");
+}
+
+// Join names as "A", "A & B", or "A, B & C".
+function joinNames(names) {
+  if (names.length <= 1) return names[0] || "—";
+  if (names.length === 2) return `${names[0]} & ${names[1]}`;
+  return `${names.slice(0, -1).join(", ")} & ${names[names.length - 1]}`;
 }
 
 // Best points total any player scored across one calendar day's completed games.
