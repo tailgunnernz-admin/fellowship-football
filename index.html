@@ -538,6 +538,86 @@
     color: var(--pts-4);
   }
 
+  /* ---------- Records ---------- */
+  .records {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+    gap: 16px;
+    align-items: start;
+  }
+  .record-card {
+    background: var(--ball-white);
+    border-radius: 4px;
+    box-shadow: var(--shadow-card);
+    padding: 18px 18px 10px;
+  }
+  .record-title {
+    font-family: 'Anton', sans-serif;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 19px;
+    margin: 0 0 6px;
+    color: var(--ball-black);
+  }
+  .record-desc {
+    font-size: 12px;
+    line-height: 1.45;
+    color: #6b7280;
+    margin: 0 0 6px;
+  }
+  .record-list { list-style: none; margin: 0; padding: 0; }
+  .record-row {
+    display: grid;
+    grid-template-columns: 26px 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-top: 1px solid #f3f4f6;
+  }
+  .record-rank {
+    display: flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px;
+    background: var(--ball-black);
+    color: var(--ball-white);
+    border-radius: 50%;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 12px;
+  }
+  .record-row[data-rank="1"] .record-rank { background: var(--gold); color: var(--ball-black); }
+  .record-row[data-rank="2"] .record-rank { background: var(--silver); color: var(--ball-black); }
+  .record-row[data-rank="3"] .record-rank { background: var(--bronze); color: var(--ball-white); }
+  .record-name {
+    font-weight: 600;
+    font-size: 15px;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .record-sub {
+    font-weight: 500;
+    font-size: 11px;
+    color: #6b7280;
+    margin-top: 2px;
+  }
+  .record-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--ball-black);
+    white-space: nowrap;
+  }
+  .record-unit {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #6b7280;
+  }
+  .record-empty { list-style: none; color: #6b7280; font-size: 13px; padding: 8px 0; }
+
   /* ---------- Mobile ---------- */
   @media (max-width: 720px) {
     .header-inner { grid-template-columns: auto 1fr; }
@@ -666,6 +746,7 @@
   <div class="tabs-inner">
     <button class="tab-btn" role="tab" aria-selected="true" data-tab="leaderboard">League table</button>
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="fixtures">Fixtures</button>
+    <button class="tab-btn" role="tab" aria-selected="false" data-tab="records">Records</button>
   </div>
 </nav>
 
@@ -687,6 +768,16 @@
     </div>
     <div id="fixtures-content">
       <div class="state"><h3>Loading the schedule</h3><p>Just a moment.</p></div>
+    </div>
+  </section>
+
+  <section class="view" data-view="records">
+    <div class="section-head">
+      <svg class="pent" aria-hidden="true" style="color:#fff"><use href="#pent"/></svg>
+      <h2>Records</h2>
+    </div>
+    <div id="records-content">
+      <div class="state"><h3>Loading the records</h3><p>Just a moment.</p></div>
     </div>
   </section>
 </main>
@@ -735,6 +826,7 @@ async function load() {
     lastData = data;
     renderLeaderboard(data.leaderboard || []);
     renderFixtures(data.fixtures || []);
+    renderRecords(data.fixtures || []);
     setUpdated(new Date());
   } catch (err) {
     showError(err.message);
@@ -765,6 +857,7 @@ function showSetup() {
   `;
   document.getElementById("leaderboard-content").innerHTML = html;
   document.getElementById("fixtures-content").innerHTML = "";
+  document.getElementById("records-content").innerHTML = "";
   document.getElementById("updated-text").textContent = "Not connected";
 }
 
@@ -777,6 +870,7 @@ function showError(msg) {
   `;
   document.getElementById("leaderboard-content").innerHTML = html;
   document.getElementById("fixtures-content").innerHTML = "";
+  document.getElementById("records-content").innerHTML = "";
 }
 
 // =============================================================
@@ -1008,6 +1102,140 @@ function renderPredictions(f, status) {
       <tbody>${rows}</tbody>
     </table>
   `;
+}
+
+// =============================================================
+// Records (mini leaderboards)
+// =============================================================
+function renderRecords(fixtures) {
+  const el = document.getElementById("records-content");
+  if (!el) return;
+
+  const finals = (fixtures || [])
+    .filter(f => getStatus(f) === "final")
+    .sort((a, b) => new Date(a.kickoffISO || a.date || 0) - new Date(b.kickoffISO || b.date || 0));
+
+  if (!finals.length) {
+    el.innerHTML = `<div class="state"><h3>No records yet</h3><p>These tables fill in once games have been completed.</p></div>`;
+    return;
+  }
+
+  el.innerHTML = `<div class="records">
+    ${recordCard("Longest scoring streak",
+      "Most completed games in a row in which a player banked at least one point. A pointless (or unentered) game ends the run.",
+      streakRows(finals))}
+    ${recordCard("Upset of the tournament",
+      "Each finished match is rated by how many got it wrong. A player’s score for a match is their points × the share of entrants who scored nothing on it — so nailing a result almost everyone missed ranks highest. The five biggest single-match calls are shown.",
+      upsetRows(finals))}
+    ${recordCard("Most points in a single day",
+      "The biggest points haul any player collected from all completed games on one calendar day.",
+      dayRows(finals))}
+  </div>`;
+}
+
+function recordCard(title, desc, rowsHtml) {
+  const body = rowsHtml || `<li class="record-empty">Not enough data yet.</li>`;
+  return `
+    <div class="record-card">
+      <h3 class="record-title">${escapeHtml(title)}</h3>
+      <p class="record-desc">${desc}</p>
+      <ol class="record-list">${body}</ol>
+    </div>
+  `;
+}
+
+function recordRow(rank, name, value, sub) {
+  return `
+    <li class="record-row" data-rank="${rank}">
+      <span class="record-rank">${rank}</span>
+      <span class="record-name">${escapeHtml(name)}${sub ? `<small class="record-sub">${sub}</small>` : ""}</span>
+      <span class="record-val">${value}</span>
+    </li>
+  `;
+}
+
+// Longest run of consecutive completed games with at least one point.
+function streakRows(finals) {
+  const players = new Map(); // normName -> { name, pts: {gameIndex: points}, total }
+  finals.forEach((f, gi) => {
+    (f.predictions || []).forEach(p => {
+      const k = normalizeName(p.player);
+      if (!k) return;
+      if (!players.has(k)) players.set(k, { name: (p.player || "").trim(), pts: {}, total: 0 });
+      const rec = players.get(k);
+      const pts = p.points ?? 0;
+      rec.pts[gi] = pts;
+      rec.total += pts;
+    });
+  });
+  const ranked = [];
+  players.forEach(rec => {
+    let best = 0, cur = 0;
+    for (let gi = 0; gi < finals.length; gi++) {
+      if ((rec.pts[gi] || 0) > 0) { cur++; if (cur > best) best = cur; }
+      else cur = 0;
+    }
+    if (best > 0) ranked.push({ name: rec.name, streak: best, total: rec.total });
+  });
+  ranked.sort((a, b) => b.streak - a.streak || b.total - a.total || a.name.localeCompare(b.name));
+  return ranked.slice(0, 5).map((r, i) =>
+    recordRow(i + 1, r.name, `${r.streak} <span class="record-unit">${r.streak === 1 ? "game" : "games"}</span>`)
+  ).join("");
+}
+
+// Biggest single-match upsets: points earned x share of entrants who missed.
+function upsetRows(finals) {
+  const entries = [];
+  finals.forEach(f => {
+    const preds = f.predictions || [];
+    const n = preds.length;
+    if (!n) return;
+    const wrongShare = preds.filter(p => (p.points ?? 0) <= 0).length / n;
+    preds.forEach(p => {
+      const pts = p.points ?? 0;
+      const rating = pts * wrongShare;
+      if (rating <= 0) return;
+      entries.push({
+        name: (p.player || "").trim(), rating, pts,
+        home: f.home, away: f.away,
+        actualHome: f.actualHome, actualAway: f.actualAway,
+        pickHome: p.home, pickAway: p.away
+      });
+    });
+  });
+  entries.sort((a, b) => b.rating - a.rating || b.pts - a.pts || a.name.localeCompare(b.name));
+  return entries.slice(0, 5).map((e, i) => {
+    const pick = (e.pickHome != null && e.pickAway != null) ? `${e.pickHome}–${e.pickAway}` : "—";
+    const sub = `${escapeHtml(homeShort(e.home))} ${e.actualHome}–${e.actualAway} ${escapeHtml(homeShort(e.away))} · called ${pick}`;
+    return recordRow(i + 1, e.name, `${e.pts} <span class="record-unit">pts</span>`, sub);
+  }).join("");
+}
+
+// Best points total any player scored across one calendar day's completed games.
+function dayRows(finals) {
+  const players = new Map(); // normName -> { name, days: Map(dayKey -> {label, pts}) }
+  finals.forEach(f => {
+    const key = localDayKey(f.kickoffISO) || f.date || "TBD";
+    const label = localDayLabel(f.kickoffISO) || f.date || "Date TBD";
+    (f.predictions || []).forEach(p => {
+      const k = normalizeName(p.player);
+      if (!k) return;
+      if (!players.has(k)) players.set(k, { name: (p.player || "").trim(), days: new Map() });
+      const days = players.get(k).days;
+      if (!days.has(key)) days.set(key, { label, pts: 0 });
+      days.get(key).pts += (p.points ?? 0);
+    });
+  });
+  const ranked = [];
+  players.forEach(rec => {
+    let best = null;
+    rec.days.forEach(d => { if (!best || d.pts > best.pts) best = d; });
+    if (best && best.pts > 0) ranked.push({ name: rec.name, pts: best.pts, label: best.label });
+  });
+  ranked.sort((a, b) => b.pts - a.pts || a.name.localeCompare(b.name));
+  return ranked.slice(0, 5).map((r, i) =>
+    recordRow(i + 1, r.name, `${r.pts} <span class="record-unit">pts</span>`, escapeHtml(r.label))
+  ).join("");
 }
 
 // =============================================================
