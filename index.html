@@ -1157,33 +1157,44 @@ function recordRow(rank, name, value, sub) {
   `;
 }
 
+// Turn a list of {name, value, sub?} into ranked rows, lumping everyone who
+// shares the same value into a single row. Shows the top 5 distinct values.
+// A row's sub-label is only kept when that value belongs to a single person.
+function groupedRows(items, formatValue) {
+  const byVal = new Map();
+  items.forEach(it => {
+    if (!byVal.has(it.value)) byVal.set(it.value, { value: it.value, names: [], sub: it.sub });
+    byVal.get(it.value).names.push(it.name);
+  });
+  const groups = [...byVal.values()].sort((a, b) => b.value - a.value);
+  return groups.slice(0, 5).map((g, i) => {
+    g.names.sort((a, b) => a.localeCompare(b));
+    const sub = g.names.length === 1 ? g.sub : undefined;
+    return recordRow(i + 1, joinNames(g.names), formatValue(g.value), sub);
+  }).join("");
+}
+
 // Longest run of consecutive completed games with at least one point.
 function streakRows(finals) {
-  const players = new Map(); // normName -> { name, pts: {gameIndex: points}, total }
+  const players = new Map(); // normName -> { name, pts: {gameIndex: points} }
   finals.forEach((f, gi) => {
     (f.predictions || []).forEach(p => {
       const k = normalizeName(p.player);
       if (!k) return;
-      if (!players.has(k)) players.set(k, { name: (p.player || "").trim(), pts: {}, total: 0 });
-      const rec = players.get(k);
-      const pts = p.points ?? 0;
-      rec.pts[gi] = pts;
-      rec.total += pts;
+      if (!players.has(k)) players.set(k, { name: (p.player || "").trim(), pts: {} });
+      players.get(k).pts[gi] = p.points ?? 0;
     });
   });
-  const ranked = [];
+  const items = [];
   players.forEach(rec => {
     let best = 0, cur = 0;
     for (let gi = 0; gi < finals.length; gi++) {
       if ((rec.pts[gi] || 0) > 0) { cur++; if (cur > best) best = cur; }
       else cur = 0;
     }
-    if (best > 0) ranked.push({ name: rec.name, streak: best, total: rec.total });
+    if (best > 0) items.push({ name: rec.name, value: best });
   });
-  ranked.sort((a, b) => b.streak - a.streak || b.total - a.total || a.name.localeCompare(b.name));
-  return ranked.slice(0, 5).map((r, i) =>
-    recordRow(i + 1, r.name, `${r.streak} <span class="record-unit">${r.streak === 1 ? "game" : "games"}</span>`)
-  ).join("");
+  return groupedRows(items, v => `${v} <span class="record-unit">${v === 1 ? "game" : "games"}</span>`);
 }
 
 // Biggest single-match upsets: points earned x share of entrants who missed.
@@ -1246,16 +1257,13 @@ function dayRows(finals) {
       days.get(key).pts += (p.points ?? 0);
     });
   });
-  const ranked = [];
+  const items = [];
   players.forEach(rec => {
     let best = null;
     rec.days.forEach(d => { if (!best || d.pts > best.pts) best = d; });
-    if (best && best.pts > 0) ranked.push({ name: rec.name, pts: best.pts, label: best.label });
+    if (best && best.pts > 0) items.push({ name: rec.name, value: best.pts, sub: escapeHtml(best.label) });
   });
-  ranked.sort((a, b) => b.pts - a.pts || a.name.localeCompare(b.name));
-  return ranked.slice(0, 5).map((r, i) =>
-    recordRow(i + 1, r.name, `${r.pts} <span class="record-unit">pts</span>`, escapeHtml(r.label))
-  ).join("");
+  return groupedRows(items, v => `${v} <span class="record-unit">pts</span>`);
 }
 
 // Most exact-score predictions (a full 4-point call).
@@ -1269,12 +1277,9 @@ function exactRows(finals) {
       if ((p.points ?? 0) === 4) players.get(k).exact++;
     });
   });
-  const ranked = [];
-  players.forEach(rec => { if (rec.exact > 0) ranked.push(rec); });
-  ranked.sort((a, b) => b.exact - a.exact || a.name.localeCompare(b.name));
-  return ranked.slice(0, 5).map((r, i) =>
-    recordRow(i + 1, r.name, `${r.exact} <span class="record-unit">exact</span>`)
-  ).join("");
+  const items = [];
+  players.forEach(rec => { if (rec.exact > 0) items.push({ name: rec.name, value: rec.exact }); });
+  return groupedRows(items, v => `${v} <span class="record-unit">exact</span>`);
 }
 
 // =============================================================
