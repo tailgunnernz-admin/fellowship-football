@@ -1130,6 +1130,9 @@ function renderRecords(fixtures) {
     ${recordCard("Most points in a single day",
       "The biggest points haul any player collected from all completed games on one calendar day.",
       dayRows(finals))}
+    ${recordCard("Most exact guesses",
+      "Players with the most spot-on scorelines — a full four-point, exact-result prediction.",
+      exactRows(finals))}
   </div>`;
 }
 
@@ -1252,6 +1255,25 @@ function dayRows(finals) {
   ranked.sort((a, b) => b.pts - a.pts || a.name.localeCompare(b.name));
   return ranked.slice(0, 5).map((r, i) =>
     recordRow(i + 1, r.name, `${r.pts} <span class="record-unit">pts</span>`, escapeHtml(r.label))
+  ).join("");
+}
+
+// Most exact-score predictions (a full 4-point call).
+function exactRows(finals) {
+  const players = new Map(); // normName -> { name, exact }
+  finals.forEach(f => {
+    (f.predictions || []).forEach(p => {
+      const k = normalizeName(p.player);
+      if (!k) return;
+      if (!players.has(k)) players.set(k, { name: (p.player || "").trim(), exact: 0 });
+      if ((p.points ?? 0) === 4) players.get(k).exact++;
+    });
+  });
+  const ranked = [];
+  players.forEach(rec => { if (rec.exact > 0) ranked.push(rec); });
+  ranked.sort((a, b) => b.exact - a.exact || a.name.localeCompare(b.name));
+  return ranked.slice(0, 5).map((r, i) =>
+    recordRow(i + 1, r.name, `${r.exact} <span class="record-unit">exact</span>`)
   ).join("");
 }
 
