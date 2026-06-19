@@ -617,6 +617,15 @@
     color: #6b7280;
   }
   .record-empty { list-style: none; color: #6b7280; font-size: 13px; padding: 8px 0; }
+  .record-foot {
+    margin: 10px 0 0;
+    padding-top: 10px;
+    border-top: 1px solid #f3f4f6;
+    font-size: 11px;
+    font-style: italic;
+    color: #6b7280;
+    line-height: 1.4;
+  }
 
   /* ---------- Mobile ---------- */
   @media (max-width: 720px) {
@@ -1122,8 +1131,9 @@ function renderRecords(fixtures) {
 
   el.innerHTML = `<div class="records">
     ${recordCard("Longest scoring streak",
-      "Most completed games in a row in which a player banked at least one point. A pointless (or unentered) game ends the run. An asterisk (*) marks a streak that is still live.",
-      streakRows(finals))}
+      "Most completed games in a row in which a player banked at least one point. A pointless (or unentered) game ends the run.",
+      streakRows(finals),
+      "* Streak is still active — the run is ongoing into the next game.")}
     ${recordCard("Upset of the tournament",
       "Each finished match is rated by how many got it wrong. A player’s score for a match is their points × the share of entrants who scored nothing on it — so nailing a result almost everyone missed ranks highest. The five biggest single-match calls are shown.",
       upsetRows(finals))}
@@ -1136,13 +1146,14 @@ function renderRecords(fixtures) {
   </div>`;
 }
 
-function recordCard(title, desc, rowsHtml) {
+function recordCard(title, desc, rowsHtml, footnote) {
   const body = rowsHtml || `<li class="record-empty">Not enough data yet.</li>`;
   return `
     <div class="record-card">
       <h3 class="record-title">${escapeHtml(title)}</h3>
       <p class="record-desc">${desc}</p>
       <ol class="record-list">${body}</ol>
+      ${footnote ? `<p class="record-foot">${footnote}</p>` : ""}
     </div>
   `;
 }
