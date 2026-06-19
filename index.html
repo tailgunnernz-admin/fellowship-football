@@ -1122,7 +1122,7 @@ function renderRecords(fixtures) {
 
   el.innerHTML = `<div class="records">
     ${recordCard("Longest scoring streak",
-      "Most completed games in a row in which a player banked at least one point. A pointless (or unentered) game ends the run.",
+      "Most completed games in a row in which a player banked at least one point. A pointless (or unentered) game ends the run. An asterisk (*) marks a streak that is still live.",
       streakRows(finals))}
     ${recordCard("Upset of the tournament",
       "Each finished match is rated by how many got it wrong. A player’s score for a match is their points × the share of entrants who scored nothing on it — so nailing a result almost everyone missed ranks highest. The five biggest single-match calls are shown.",
@@ -1192,7 +1192,17 @@ function streakRows(finals) {
       if ((rec.pts[gi] || 0) > 0) { cur++; if (cur > best) best = cur; }
       else cur = 0;
     }
-    if (best > 0) items.push({ name: rec.name, value: best });
+    if (best > 0) {
+      // The streak is still live if the current run (counting back from the
+      // most recent completed game) is as long as the player's best run.
+      let tail = 0;
+      for (let gi = finals.length - 1; gi >= 0; gi--) {
+        if ((rec.pts[gi] || 0) > 0) tail++;
+        else break;
+      }
+      const active = tail === best;
+      items.push({ name: active ? `${rec.name}*` : rec.name, value: best });
+    }
   });
   return groupedRows(items, v => `${v} <span class="record-unit">${v === 1 ? "game" : "games"}</span>`);
 }
