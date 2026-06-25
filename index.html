@@ -390,6 +390,10 @@
     font-weight: 500;
     margin: 0 8px;
   }
+  .fix-teams .flag {
+    margin-right: 6px;
+    font-size: 0.95em;
+  }
   .fix-teams .round-tag {
     display: block;
     font-size: 10px;
@@ -1047,7 +1051,7 @@ function renderFixture(f) {
         </div>
         <div class="fix-teams">
           ${roundTag}
-          ${homeName}<span class="vs">vs</span>${awayName}
+          ${flagPrefix(f.home)}${homeName}<span class="vs">vs</span>${flagPrefix(f.away)}${awayName}
           ${live && !hasScore ? `<span class="mob-status status-live">LIVE</span>` : ""}
         </div>
         ${scoreOrStatus}
@@ -1378,6 +1382,61 @@ function homeShort(name) {
   // Trim common long names for the pens label
   const map = { "Bosnia and Herzegovina": "Bosnia" };
   return map[name] || name;
+}
+
+// ----- Country flags -----
+// Special subdivision flags (no regional-indicator code point).
+const FLAG_SPECIAL = {
+  "england":  "\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}",
+  "scotland": "\u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}",
+  "wales":    "\u{1F3F4}\u{E0067}\u{E0062}\u{E0077}\u{E006C}\u{E0073}\u{E007F}"
+};
+// Country name (normalised) -> ISO 3166-1 alpha-2.
+const COUNTRY_ISO = {
+  "usa":"US","united states":"US","united states of america":"US","us":"US",
+  "canada":"CA","mexico":"MX",
+  "argentina":"AR","brazil":"BR","uruguay":"UY","colombia":"CO","ecuador":"EC",
+  "paraguay":"PY","peru":"PE","chile":"CL","bolivia":"BO","venezuela":"VE",
+  "france":"FR","spain":"ES","germany":"DE","netherlands":"NL","holland":"NL",
+  "belgium":"BE","portugal":"PT","italy":"IT","croatia":"HR","serbia":"RS",
+  "switzerland":"CH","denmark":"DK","poland":"PL","austria":"AT","ukraine":"UA",
+  "sweden":"SE","norway":"NO","czechia":"CZ","czech republic":"CZ",
+  "turkey":"TR","turkiye":"TR","türkiye":"TR",
+  "bosnia and herzegovina":"BA","bosnia":"BA","hungary":"HU","romania":"RO",
+  "greece":"GR","ireland":"IE","republic of ireland":"IE","slovakia":"SK",
+  "slovenia":"SI","albania":"AL","north macedonia":"MK","iceland":"IS",
+  "finland":"FI","russia":"RU","kosovo":"XK","montenegro":"ME","luxembourg":"LU",
+  "georgia":"GE","armenia":"AM","azerbaijan":"AZ","kazakhstan":"KZ",
+  "morocco":"MA","senegal":"SN","tunisia":"TN","algeria":"DZ","egypt":"EG",
+  "nigeria":"NG","cameroon":"CM","ghana":"GH","ivory coast":"CI",
+  "cote d'ivoire":"CI","côte d'ivoire":"CI","côte d’ivoire":"CI",
+  "mali":"ML","south africa":"ZA","dr congo":"CD","cape verde":"CV","cabo verde":"CV",
+  "burkina faso":"BF","angola":"AO","gabon":"GA","guinea":"GN",
+  "japan":"JP","south korea":"KR","korea republic":"KR","korea":"KR",
+  "north korea":"KP","korea dpr":"KP","iran":"IR","ir iran":"IR",
+  "saudi arabia":"SA","australia":"AU","qatar":"QA","iraq":"IQ",
+  "united arab emirates":"AE","uae":"AE","uzbekistan":"UZ","jordan":"JO",
+  "china":"CN","china pr":"CN","india":"IN","indonesia":"ID","new zealand":"NZ",
+  "panama":"PA","costa rica":"CR","honduras":"HN","jamaica":"JM",
+  "el salvador":"SV","guatemala":"GT","haiti":"HT","trinidad and tobago":"TT",
+  "curacao":"CW","curaçao":"CW","new caledonia":"NC"
+};
+
+function flagEmoji(iso2) {
+  return iso2.toUpperCase().replace(/./g, c => String.fromCodePoint(127397 + c.charCodeAt(0)));
+}
+
+function flagFor(name) {
+  const k = normalizeName(name);
+  if (FLAG_SPECIAL[k]) return FLAG_SPECIAL[k];
+  const iso = COUNTRY_ISO[k];
+  return iso ? flagEmoji(iso) : "";
+}
+
+// A flag prefix span (empty string when the country isn't recognised).
+function flagPrefix(name) {
+  const fl = flagFor(name);
+  return fl ? `<span class="flag">${fl}</span>` : "";
 }
 
 // Match player names tolerantly across the standings and predictions data:
