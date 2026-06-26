@@ -895,10 +895,32 @@ function renderLeaderboard(rows) {
       `<div class="state"><h3>No predictions yet</h3><p>Standings will appear once games have been played.</p></div>`;
     return;
   }
-  const sorted = [...rows].sort((a, b) => {
-    if (a.rank !== b.rank) return a.rank - b.rank;
-    return (b.points || 0) - (a.points || 0);
-  });
+  // Placings normally come from the feed's `rank`. If that column looks
+  // broken (e.g. every row is 0, as can happen when a bad cell breaks the
+  // sheet's RANK formula), fall back to deriving placings from points so the
+  // table still reads correctly. Equal points share a place.
+  const positiveRanks = rows.map(r => Number(r.rank)).filter(n => n > 0);
+  const ranksUsable = positiveRanks.length > 0 && new Set(positiveRanks).size > 1;
+
+  let sorted;
+  if (ranksUsable) {
+    sorted = [...rows].sort((a, b) => {
+      if (a.rank !== b.rank) return a.rank - b.rank;
+      return (b.points || 0) - (a.points || 0);
+    });
+  } else {
+    sorted = [...rows].sort((a, b) =>
+      (b.points || 0) - (a.points || 0) ||
+      (b.exact || 0) - (a.exact || 0) ||
+      (a.player || "").localeCompare(b.player || "")
+    );
+    let place = 0, prevPoints = null;
+    sorted.forEach((r, i) => {
+      const pts = r.points || 0;
+      if (prevPoints === null || pts !== prevPoints) { place = i + 1; prevPoints = pts; }
+      r.rank = place;
+    });
+  }
   const fixtures = (lastData && lastData.fixtures) || [];
   const items = sorted.map(r => `
     <li class="lb-row" data-rank="${r.rank}" aria-expanded="false">
