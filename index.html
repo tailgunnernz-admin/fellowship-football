@@ -1167,7 +1167,7 @@ function renderPredictions(f, status) {
   }
 
   const showPoints = (status === "final");
-  const showAdv = (f.stage === "Knockout");
+  const showAdv = isKnockout(f);
 
   // Sort: by points (high to low) if completed, else by player name
   const sorted = [...preds].sort((a, b) => {
