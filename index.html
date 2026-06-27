@@ -315,6 +315,44 @@
   .lb-empty { text-align: center; color: #6b7280; font-size: 14px; padding: 8px; }
 
   /* ---------- Fixtures ---------- */
+  /* Collapsible phase sections (group / knockouts) */
+  .stage + .stage { margin-top: 14px; }
+  .stage-head {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(10,10,10,0.4);
+    border: 0;
+    border-radius: 4px;
+    cursor: pointer;
+    color: var(--ball-white);
+    font-family: 'Anton', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 18px;
+    padding: 13px 16px;
+  }
+  .stage-head:hover { background: rgba(10,10,10,0.55); }
+  .stage-head:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  .stage-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: rgba(255,255,255,0.7);
+    margin-left: auto;
+  }
+  .stage-chev {
+    width: 14px; height: 14px;
+    color: rgba(255,255,255,0.85);
+    transition: transform .2s ease;
+    flex-shrink: 0;
+  }
+  .stage[aria-expanded="true"] .stage-chev { transform: rotate(180deg); }
+  .stage-body { display: none; padding-top: 16px; }
+  .stage[aria-expanded="true"] .stage-body { display: block; }
+
   .date-group + .date-group { margin-top: 28px; }
   .date-label {
     color: var(--ball-white);
@@ -977,7 +1015,54 @@ function renderFixtures(fixtures) {
     return;
   }
 
-  // Group by local-date string
+  const container = document.getElementById("fixtures-content");
+  // Remember which stage sections are open so a refresh doesn't reset them.
+  const prevState = {};
+  container.querySelectorAll(".stage").forEach(s => { prevState[s.dataset.stage] = s.getAttribute("aria-expanded"); });
+
+  const groupFx = fixtures.filter(f => !isKnockout(f));
+  const koFx = fixtures.filter(f => isKnockout(f));
+
+  let html;
+  if (groupFx.length && koFx.length) {
+    // Both phases present: split into collapsible sections. Once every group
+    // game is finished, collapse the group section by default so the latest
+    // (knockout) games sit near the top with no scrolling.
+    const groupDone = groupFx.every(f => getStatus(f) === "final");
+    html =
+      stageSection("group", "Group stage", groupFx, !groupDone, prevState) +
+      stageSection("knockout", "Knockouts", koFx, true, prevState);
+  } else {
+    html = renderDateGroups(fixtures);
+  }
+
+  container.innerHTML = html;
+
+  // Wire up section collapse/expand
+  container.querySelectorAll(".stage").forEach(s => {
+    s.querySelector(".stage-head").addEventListener("click", () => {
+      const open = s.getAttribute("aria-expanded") === "true";
+      s.setAttribute("aria-expanded", open ? "false" : "true");
+    });
+  });
+
+  // Wire up fixture expand/collapse
+  container.querySelectorAll(".fixture").forEach(fx => {
+    const btn = fx.querySelector(".fix-summary");
+    btn.addEventListener("click", () => {
+      const open = fx.getAttribute("aria-expanded") === "true";
+      fx.setAttribute("aria-expanded", open ? "false" : "true");
+    });
+  });
+}
+
+// True for knockout-stage fixtures (group games return false).
+function isKnockout(f) {
+  return /knock/i.test(f.stage || "");
+}
+
+// Render a set of fixtures grouped by local day.
+function renderDateGroups(fixtures) {
   const groups = [];
   const byDay = new Map();
   fixtures.forEach(f => {
@@ -989,7 +1074,7 @@ function renderFixtures(fixtures) {
     byDay.get(key).items.push(f);
   });
 
-  const html = groups.map(g => `
+  return groups.map(g => `
     <div class="date-group">
       <h3 class="date-label">
         ${escapeHtml(g.label)}
@@ -1000,17 +1085,23 @@ function renderFixtures(fixtures) {
       </ul>
     </div>
   `).join("");
+}
 
-  document.getElementById("fixtures-content").innerHTML = html;
-
-  // Wire up expand/collapse
-  document.querySelectorAll(".fixture").forEach(fx => {
-    const btn = fx.querySelector(".fix-summary");
-    btn.addEventListener("click", () => {
-      const open = fx.getAttribute("aria-expanded") === "true";
-      fx.setAttribute("aria-expanded", open ? "false" : "true");
-    });
-  });
+// A collapsible phase section. Uses the remembered open/closed state if the
+// user has toggled it, otherwise the supplied default.
+function stageSection(id, title, fixtures, defaultExpanded, prevState) {
+  const expanded = (prevState && prevState[id] != null) ? prevState[id] : (defaultExpanded ? "true" : "false");
+  const n = fixtures.length;
+  return `
+    <section class="stage" data-stage="${id}" aria-expanded="${expanded}">
+      <button class="stage-head" aria-label="Toggle ${escapeHtml(title)}">
+        <span class="stage-title">${escapeHtml(title)}</span>
+        <span class="stage-count">${n} ${n === 1 ? "match" : "matches"}</span>
+        <svg class="stage-chev" aria-hidden="true"><use href="#chev"/></svg>
+      </button>
+      <div class="stage-body">${renderDateGroups(fixtures)}</div>
+    </section>
+  `;
 }
 
 function renderFixture(f) {
