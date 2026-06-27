@@ -1056,9 +1056,16 @@ function renderFixtures(fixtures) {
   });
 }
 
-// True for knockout-stage fixtures (group games return false).
+// The knockout phase begins with the single game on Mon 29 Jun 2026 (NZ);
+// every game from then on is a knockout.
+const KNOCKOUT_FROM_MS = Date.parse("2026-06-29T00:00:00+12:00");
+
+// True for knockout-stage fixtures (group games return false). Honours an
+// explicit "Knockout" stage if set, otherwise falls back to the date cutoff.
 function isKnockout(f) {
-  return /knock/i.test(f.stage || "");
+  if (/knock/i.test(f.stage || "")) return true;
+  const ko = f.kickoffISO ? Date.parse(f.kickoffISO) : NaN;
+  return !isNaN(ko) && ko >= KNOCKOUT_FROM_MS;
 }
 
 // Render a set of fixtures grouped by local day.
