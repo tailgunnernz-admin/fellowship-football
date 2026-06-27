@@ -558,6 +558,16 @@
     text-transform: uppercase;
     text-align: center;
   }
+  .pred-adv-note {
+    display: block;
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: #6b7280;
+    margin-top: 2px;
+  }
+  .pred-adv-note strong { color: var(--ball-black); font-weight: 700; }
   .pts-badge {
     display: inline-block;
     font-family: 'JetBrains Mono', monospace;
@@ -1167,7 +1177,7 @@ function renderPredictions(f, status) {
   }
 
   const showPoints = (status === "final");
-  const showAdv = isKnockout(f);
+  const knockout = isKnockout(f);
 
   // Sort: by points (high to low) if completed, else by player name
   const sorted = [...preds].sort((a, b) => {
@@ -1181,11 +1191,12 @@ function renderPredictions(f, status) {
   const rows = sorted.map(p => {
     const isExact = showPoints && p.points === 4;
     const score = (p.home != null && p.away != null) ? `${p.home}–${p.away}` : "—";
-    let advCell = "";
-    if (showAdv && p.advancer) {
-      advCell = `<td class="pred-adv">${p.advancer === "Home" ? "→ " + homeShort(f.home) : "→ " + homeShort(f.away)}</td>`;
-    } else if (showAdv) {
-      advCell = `<td class="pred-adv">—</td>`;
+    // For a knockout draw (i.e. they're calling penalties), show the team
+    // they think advances in bold beneath the score.
+    let advNote = "";
+    if (knockout && p.home != null && p.home === p.away && p.advancer) {
+      const team = p.advancer === "Home" ? f.home : f.away;
+      advNote = `<span class="pred-adv-note"><strong>${escapeHtml(homeShort(team))}</strong> on pens</span>`;
     }
     const ptsCell = showPoints
       ? `<td style="text-align:right"><span class="pts-badge pts-${p.points ?? 0}">${p.points ?? 0}</span></td>`
@@ -1193,8 +1204,7 @@ function renderPredictions(f, status) {
     return `
       <tr${isExact ? ' class="exact"' : ""}>
         <td class="pred-name">${escapeHtml(p.player || "—")}</td>
-        <td class="pred-score">${score}</td>
-        ${advCell}
+        <td class="pred-score">${score}${advNote}</td>
         ${ptsCell}
       </tr>
     `;
@@ -1206,7 +1216,6 @@ function renderPredictions(f, status) {
         <tr>
           <th>Player</th>
           <th class="center">Pick</th>
-          ${showAdv ? '<th class="center">Advancer</th>' : ""}
           ${showPoints ? '<th class="right">Pts</th>' : ""}
         </tr>
       </thead>
