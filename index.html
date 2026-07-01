@@ -271,10 +271,26 @@
   .lb-name {
     font-weight: 600;
     font-size: 17px;
+    min-width: 0;
+  }
+  .lb-name .lb-player {
+    display: block;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .lb-winner {
+    display: block;
+    font-weight: 500;
+    font-size: 11px;
+    color: #6b7280;
+    margin-top: 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .lb-winner.out { color: #9ca3af; }
+  .lb-winner.out .team { text-decoration: line-through; }
   .lb-points {
     font-family: 'JetBrains Mono', monospace;
     font-weight: 700;
@@ -948,11 +964,15 @@ function renderLeaderboard(rows) {
     return (b.points || 0) - (a.points || 0);
   });
   const fixtures = (lastData && lastData.fixtures) || [];
+  const eliminated = eliminatedTeams(fixtures);
   const items = sorted.map(r => `
     <li class="lb-row" data-rank="${r.rank}" aria-expanded="false">
       <button class="lb-summary" aria-label="Show ${escapeHtml(r.player || "player")}'s completed picks">
         <div class="rank-mark">${r.rank}</div>
-        <div class="lb-name">${escapeHtml(r.player || "—")}</div>
+        <div class="lb-name">
+          <span class="lb-player">${escapeHtml(r.player || "—")}</span>
+          ${renderWinnerPick(r, eliminated)}
+        </div>
         <div class="lb-points">${r.points ?? 0}<span class="lbl">pts</span></div>
         <div class="lb-exact"><strong>${r.exact ?? 0}</strong> exact</div>
         <svg class="chev" aria-hidden="true"><use href="#chev"/></svg>
@@ -970,6 +990,46 @@ function renderLeaderboard(rows) {
       row.setAttribute("aria-expanded", open ? "false" : "true");
     });
   });
+}
+
+// A player's World Cup winner pick, read from whatever leaderboard field
+// carries "winner" in its name (matches the sheet's Winner Prediction column).
+function winnerPick(r) {
+  for (const k in r) {
+    if (/winner/i.test(k) && r[k] != null && String(r[k]).trim() !== "") return String(r[k]).trim();
+  }
+  return "";
+}
+
+// Teams knocked out of the tournament, derived from completed knockout games:
+// the loser (or, on a penalty draw, the non-advancer) is eliminated.
+function eliminatedTeams(fixtures) {
+  const set = new Set();
+  (fixtures || []).forEach(f => {
+    if (!isKnockout(f) || getStatus(f) !== "final") return;
+    const h = Number(f.actualHome), a = Number(f.actualAway);
+    if (isNaN(h) || isNaN(a)) return;
+    let loser = null;
+    if (h > a) loser = f.away;
+    else if (a > h) loser = f.home;
+    else if (f.advancer === "Home") loser = f.away;
+    else if (f.advancer === "Away") loser = f.home;
+    if (loser) set.add(normalizeName(loser));
+  });
+  return set;
+}
+
+// The winner-pick badge shown under a player's name. Flag + team while the
+// team is alive; a skull and struck-through name once it's knocked out.
+function renderWinnerPick(r, eliminated) {
+  const pick = winnerPick(r);
+  if (!pick) return "";
+  const team = `<span class="team">${escapeHtml(pick)}</span>`;
+  if (eliminated && eliminated.has(normalizeName(pick))) {
+    return `<span class="lb-winner out" title="Knocked out">💀 ${team}</span>`;
+  }
+  const fl = flagFor(pick);
+  return `<span class="lb-winner" title="Winner pick">${fl ? fl + " " : ""}${team}</span>`;
 }
 
 // For one player, list every completed game with their pick, the actual
