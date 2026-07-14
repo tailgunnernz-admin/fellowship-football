@@ -218,6 +218,47 @@
   }
 
   /* ---------- Leaderboard ---------- */
+  /* Age-group segmented control */
+  .lb-filter {
+    display: inline-flex;
+    gap: 4px;
+    background: rgba(10,10,10,0.4);
+    border-radius: 4px;
+    padding: 4px;
+    margin: 0 0 16px;
+  }
+  .lb-filter-btn {
+    background: none;
+    border: 0;
+    cursor: pointer;
+    font-family: 'Anton', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 13px;
+    color: rgba(255,255,255,0.75);
+    padding: 8px 14px;
+    border-radius: 3px;
+    transition: background .15s ease, color .15s ease;
+  }
+  .lb-filter-btn:hover { color: var(--ball-white); }
+  .lb-filter-btn[aria-pressed="true"] {
+    background: var(--ball-white);
+    color: var(--ball-black);
+  }
+  .u14-badge {
+    display: inline-block;
+    font-family: 'Inter', sans-serif;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    background: rgba(0,0,0,0.08);
+    color: #4b5563;
+    padding: 2px 6px;
+    border-radius: 3px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
   .leaderboard {
     list-style: none;
     margin: 0; padding: 0;
@@ -833,6 +874,11 @@
       <svg class="pent" aria-hidden="true" style="color:#fff"><use href="#pent"/></svg>
       <h2>Standings</h2>
     </div>
+    <div class="lb-filter" role="group" aria-label="Filter standings by age group">
+      <button class="lb-filter-btn" data-filter="all" aria-pressed="true">All</button>
+      <button class="lb-filter-btn" data-filter="youth" aria-pressed="false">Under 14</button>
+      <button class="lb-filter-btn" data-filter="adult" aria-pressed="false">Over 14</button>
+    </div>
     <div id="leaderboard-content">
       <div class="state"><h3>Loading the table</h3><p>Just a moment.</p></div>
     </div>
@@ -873,6 +919,7 @@ const REFRESH_MS = 60_000;
 // =============================================================
 let lastData = null;
 let refreshTimer = null;
+let lbFilter = "all"; // "all" | "youth" | "adult"
 
 // =============================================================
 // Tab switching
@@ -885,6 +932,18 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
     document.querySelectorAll(".view").forEach(v => {
       v.dataset.active = (v.dataset.view === target) ? "true" : "false";
     });
+  });
+});
+
+// =============================================================
+// Leaderboard age-group filter
+// =============================================================
+document.querySelectorAll(".lb-filter-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    lbFilter = btn.dataset.filter;
+    document.querySelectorAll(".lb-filter-btn").forEach(b =>
+      b.setAttribute("aria-pressed", b === btn ? "true" : "false"));
+    if (lastData) renderLeaderboard(lastData.leaderboard || []);
   });
 });
 
@@ -954,23 +1013,50 @@ function showError(msg) {
 // Leaderboard rendering
 // =============================================================
 function renderLeaderboard(rows) {
+  const el = document.getElementById("leaderboard-content");
   if (!rows.length) {
-    document.getElementById("leaderboard-content").innerHTML =
+    el.innerHTML =
       `<div class="state"><h3>No predictions yet</h3><p>Standings will appear once games have been played.</p></div>`;
     return;
   }
-  const sorted = [...rows].sort((a, b) => {
-    if (a.rank !== b.rank) return a.rank - b.rank;
-    return (b.points || 0) - (a.points || 0);
+
+  // Filter to the active age group ("all" | under-14 | over-14).
+  const filtered = rows.filter(r => {
+    if (lbFilter === "youth") return r.isYouth === true;
+    if (lbFilter === "adult") return !r.isYouth;
+    return true;
   });
+
+  if (!filtered.length) {
+    el.innerHTML =
+      `<div class="state"><h3>No players in this group</h3><p>Try a different age group.</p></div>`;
+    return;
+  }
+
+  // Sort by points, then exact scorelines (both descending).
+  const sorted = [...filtered].sort((a, b) =>
+    (b.points || 0) - (a.points || 0) ||
+    (b.exact || 0) - (a.exact || 0)
+  );
+
+  // Recompute ranks 1..N within this filtered set. Players with identical
+  // points AND exact counts share a rank.
+  let place = 0, prevKey = null;
+  sorted.forEach((r, i) => {
+    const key = `${r.points || 0}|${r.exact || 0}`;
+    if (key !== prevKey) { place = i + 1; prevKey = key; }
+    r._place = place;
+  });
+
+  const showBadges = (lbFilter === "all");
   const fixtures = (lastData && lastData.fixtures) || [];
   const eliminated = eliminatedTeams(fixtures);
   const items = sorted.map(r => `
-    <li class="lb-row" data-rank="${r.rank}" aria-expanded="false">
+    <li class="lb-row" data-rank="${r._place}" aria-expanded="false">
       <button class="lb-summary" aria-label="Show ${escapeHtml(r.player || "player")}'s completed picks">
-        <div class="rank-mark">${r.rank}</div>
+        <div class="rank-mark">${r._place}</div>
         <div class="lb-name">
-          <span class="lb-player">${escapeHtml(r.player || "—")}</span>
+          <span class="lb-player">${escapeHtml(r.player || "—")}${showBadges && r.isYouth ? `<span class="u14-badge">U14</span>` : ""}</span>
           ${renderWinnerPick(r, eliminated)}
         </div>
         <div class="lb-points">${r.points ?? 0}<span class="lbl">pts</span></div>
@@ -980,7 +1066,7 @@ function renderLeaderboard(rows) {
       <div class="lb-detail">${renderPlayerDetail(r.player, fixtures)}</div>
     </li>
   `).join("");
-  document.getElementById("leaderboard-content").innerHTML = `<ol class="leaderboard">${items}</ol>`;
+  el.innerHTML = `<ol class="leaderboard">${items}</ol>`;
 
   // Wire up expand/collapse
   document.querySelectorAll(".lb-row").forEach(row => {
