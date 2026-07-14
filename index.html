@@ -1086,25 +1086,46 @@ function renderFixtures(fixtures) {
   }
 
   const container = document.getElementById("fixtures-content");
-  // Remember which stage sections are open so a refresh doesn't reset them.
+  // Remember which sections are open so a refresh doesn't reset them.
   const prevState = {};
   container.querySelectorAll(".stage").forEach(s => { prevState[s.dataset.stage] = s.getAttribute("aria-expanded"); });
 
   const groupFx = fixtures.filter(f => !isKnockout(f));
   const koFx = fixtures.filter(f => isKnockout(f));
 
-  let html;
-  if (groupFx.length && koFx.length) {
-    // Both phases present: split into collapsible sections. Once every group
-    // game is finished, collapse the group section by default so the latest
-    // (knockout) games sit near the top with no scrolling.
-    const groupDone = groupFx.every(f => getStatus(f) === "final");
-    html =
-      stageSection("group", "Group stage", groupFx, !groupDone, prevState) +
-      stageSection("knockout", "Knockouts", koFx, true, prevState);
-  } else {
-    html = renderDateGroups(fixtures);
+  // No knockouts yet — keep the simple flat layout.
+  if (!koFx.length) {
+    container.innerHTML = renderDateGroups(fixtures);
+    wireFixtureEvents(container);
+    return;
   }
+
+  // Build ordered sections: group first, then one per knockout round.
+  const sections = [];
+  if (groupFx.length) sections.push({ id: "group", title: "Group stage", fx: groupFx });
+
+  const buckets = {};
+  const other = [];
+  koFx.forEach(f => {
+    const id = knockoutRoundId(f);
+    if (id) (buckets[id] = buckets[id] || []).push(f);
+    else other.push(f);
+  });
+  KO_ROUNDS.forEach(R => {
+    if (buckets[R.id] && buckets[R.id].length) sections.push({ id: R.id, title: R.title, fx: buckets[R.id] });
+  });
+  if (other.length) sections.push({ id: "ko-other", title: "Knockouts", fx: other });
+
+  // Open state: collapse finished sections; expand the current round (the
+  // first section that isn't all-finished) plus anything currently live. If
+  // the whole tournament is done, open the last section (the final).
+  const firstOpen = sections.findIndex(s => !s.fx.every(f => getStatus(f) === "final"));
+  const html = sections.map((s, idx) => {
+    let expand;
+    if (firstOpen === -1) expand = (idx === sections.length - 1);
+    else expand = (idx === firstOpen) || s.fx.some(f => isLive(f));
+    return stageSection(s.id, s.title, s.fx, expand, prevState);
+  }).join("");
 
   container.innerHTML = html;
 
@@ -1116,7 +1137,10 @@ function renderFixtures(fixtures) {
     });
   });
 
-  // Wire up fixture expand/collapse
+  wireFixtureEvents(container);
+}
+
+function wireFixtureEvents(container) {
   container.querySelectorAll(".fixture").forEach(fx => {
     const btn = fx.querySelector(".fix-summary");
     btn.addEventListener("click", () => {
@@ -1124,6 +1148,23 @@ function renderFixtures(fixtures) {
       fx.setAttribute("aria-expanded", open ? "false" : "true");
     });
   });
+}
+
+// Knockout round buckets, in bracket order. The Final section also holds the
+// third-place play-off. Classified from the fixture's `round` label.
+const KO_ROUNDS = [
+  { id: "r32",   title: "Round of 32",    test: r => /32/.test(r) },
+  { id: "r16",   title: "Round of 16",    test: r => /16/.test(r) },
+  { id: "qf",    title: "Quarter-finals", test: r => /quarter|(^|[^a-z])qf([^a-z]|$)/.test(r) },
+  { id: "sf",    title: "Semi-finals",    test: r => /semi|(^|[^a-z])sf([^a-z]|$)/.test(r) },
+  { id: "final", title: "Final",          test: r => /final|third|3rd|bronze|play.?off/.test(r) },
+];
+
+function knockoutRoundId(f) {
+  const r = normalizeName(f.round);
+  if (!r) return null;
+  const hit = KO_ROUNDS.find(R => R.test(r));
+  return hit ? hit.id : null;
 }
 
 // The knockout phase begins with the single game on Mon 29 Jun 2026 (NZ);
