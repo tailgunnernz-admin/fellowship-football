@@ -760,8 +760,6 @@
   }
   .progress-legend {
     flex: 0 0 148px;
-    max-height: 560px;
-    overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 1px;
@@ -794,6 +792,17 @@
     background: #cbd5e1;
   }
   .pl-legend-item.active .sw { background: #1d4ed8; }
+  .progress-plot {
+    display: flex;
+    align-items: flex-start;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .progress-axis {
+    flex: 0 0 auto;
+    border-right: 1px solid #eef2f7;
+  }
+  .progress-axis .axis-txt { fill: #6b7280; font-family: 'JetBrains Mono', monospace; font-size: 10px; }
   .progress-scroll {
     flex: 1 1 auto;
     overflow-x: auto;
@@ -1781,7 +1790,7 @@ function renderProgress(leaderboard, fixtures) {
 
   // Geometry
   const N = players.length, D = days.length;
-  const rowH = 22, colW = 76, mT = 26, mB = 42, mL = 36, mR = 150;
+  const rowH = 22, colW = 76, mT = 26, mB = 42, mL = 24, mR = 150;
   const plotH = Math.max(rowH, (N - 1) * rowH);
   const plotW = Math.max(colW, (D - 1) * colW);
   const W = mL + plotW + mR, H = mT + plotH + mB;
@@ -1793,9 +1802,11 @@ function renderProgress(leaderboard, fixtures) {
   const rankTicks = [];
   for (let r = 1; r <= N; r += (N > 12 ? 5 : 2)) rankTicks.push(r);
   if (rankTicks[rankTicks.length - 1] !== N) rankTicks.push(N);
+  const axisW = 30;
+  let axis = ""; // rank numbers live in a fixed column, left of the scroll
   rankTicks.forEach(r => {
     grid += `<line class="grid" x1="${mL}" y1="${Y(r)}" x2="${mL + plotW}" y2="${Y(r)}"/>`;
-    grid += `<text class="axis-txt" x="${mL - 8}" y="${Y(r) + 3}" text-anchor="end">${r}</text>`;
+    axis += `<text class="axis-txt" x="${axisW - 8}" y="${Y(r) + 3}" text-anchor="end">${r}</text>`;
   });
   days.forEach((d, di) => {
     grid += `<line class="grid" x1="${X(di)}" y1="${mT}" x2="${X(di)}" y2="${mT + plotH}"/>`;
@@ -1812,7 +1823,7 @@ function renderProgress(leaderboard, fixtures) {
   }).join("");
 
   const legend = alpha.map((p, idx) =>
-    `<button class="pl-legend-item" data-idx="${idx}"><span class="sw"></span>${escapeHtml(p.name)}${p.isYouth ? '<span class="u14-badge">U14</span>' : ''}</button>`
+    `<button class="pl-legend-item" data-idx="${idx}"><span class="sw"></span>${escapeHtml(p.name)}</button>`
   ).join("");
 
   el.innerHTML = `
@@ -1820,10 +1831,13 @@ function renderProgress(leaderboard, fixtures) {
       <p class="progress-hint">Table position (rank 1 = top) after each day of completed games. Tap a name to trace their path; the chart scrolls sideways for the full run.</p>
       <div class="progress-body">
         <div class="progress-legend">${legend}</div>
-        <div class="progress-scroll">
-          <svg class="progress-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Table position of each player over time">
-            ${grid}${series}
-          </svg>
+        <div class="progress-plot">
+          <svg class="progress-axis" width="${axisW}" height="${H}" viewBox="0 0 ${axisW} ${H}" aria-hidden="true">${axis}</svg>
+          <div class="progress-scroll">
+            <svg class="progress-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Table position of each player over time">
+              ${grid}${series}
+            </svg>
+          </div>
         </div>
       </div>
     </div>`;
