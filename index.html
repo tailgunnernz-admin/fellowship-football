@@ -130,10 +130,14 @@
     margin: 0 auto;
     display: flex;
     padding: 0 20px;
+    overflow-x: auto;
+    scrollbar-width: none;
   }
+  .tabs-inner::-webkit-scrollbar { display: none; }
   .tab-btn {
     background: none;
     border: 0;
+    flex-shrink: 0;
     color: #9ca3af;
     font-family: 'Anton', sans-serif;
     font-size: 16px;
@@ -736,6 +740,78 @@
     line-height: 1.4;
   }
 
+  /* ---------- Table progress (rank-over-time chart) ---------- */
+  .progress {
+    background: var(--ball-white);
+    border-radius: 6px;
+    box-shadow: var(--shadow-card);
+    padding: 18px;
+  }
+  .progress-hint {
+    margin: 0 0 14px;
+    font-size: 12px;
+    color: #6b7280;
+    line-height: 1.5;
+  }
+  .progress-body {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .progress-legend {
+    flex: 0 0 148px;
+    max-height: 560px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    border-right: 1px solid #eef2f7;
+    padding-right: 8px;
+  }
+  .pl-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: 0;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    color: #374151;
+    padding: 4px 6px;
+    border-radius: 3px;
+    line-height: 1.2;
+  }
+  .pl-legend-item:hover { background: #f3f4f6; }
+  .pl-legend-item.active { background: #eef2ff; color: #1d4ed8; font-weight: 700; }
+  .pl-legend-item .sw {
+    flex: 0 0 auto;
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: #cbd5e1;
+  }
+  .pl-legend-item.active .sw { background: #1d4ed8; }
+  .progress-scroll {
+    flex: 1 1 auto;
+    overflow-x: auto;
+    min-width: 0;
+  }
+  .progress-svg { display: block; }
+  .progress-svg .grid { stroke: #f1f5f9; stroke-width: 1; }
+  .progress-svg .axis-txt { fill: #9ca3af; font-family: 'JetBrains Mono', monospace; font-size: 10px; }
+  .progress-svg .series polyline { fill: none; stroke: #cbd5e1; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+  .progress-svg .series .dot { fill: #cbd5e1; }
+  .progress-svg .series .lbl { display: none; font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; fill: #111; }
+  .progress-svg.has-hi .series { opacity: 0.22; }
+  .progress-svg.has-hi .series.hi { opacity: 1; }
+  .progress-svg .series.hi polyline { stroke: #1d4ed8; stroke-width: 2.5; }
+  .progress-svg .series.hi .dot { fill: #1d4ed8; }
+  .progress-svg .series.hi .lbl { display: block; }
+  .progress-empty { color: #6b7280; font-size: 14px; padding: 8px; text-align: center; }
+
   /* ---------- Mobile ---------- */
   @media (max-width: 720px) {
     .header-inner { grid-template-columns: auto 1fr; }
@@ -865,6 +941,7 @@
     <button class="tab-btn" role="tab" aria-selected="true" data-tab="leaderboard">Table</button>
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="fixtures">Fixtures</button>
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="records">Records</button>
+    <button class="tab-btn" role="tab" aria-selected="false" data-tab="progress">Progress</button>
   </div>
 </nav>
 
@@ -901,6 +978,16 @@
     </div>
     <div id="records-content">
       <div class="state"><h3>Loading the records</h3><p>Just a moment.</p></div>
+    </div>
+  </section>
+
+  <section class="view" data-view="progress">
+    <div class="section-head">
+      <svg class="pent" aria-hidden="true" style="color:#fff"><use href="#pent"/></svg>
+      <h2>Table progress</h2>
+    </div>
+    <div id="progress-content">
+      <div class="state"><h3>Loading the chart</h3><p>Just a moment.</p></div>
     </div>
   </section>
 </main>
@@ -963,6 +1050,7 @@ async function load() {
     renderLeaderboard(data.leaderboard || []);
     renderFixtures(data.fixtures || []);
     renderRecords(data.fixtures || []);
+    renderProgress(data.leaderboard || [], data.fixtures || []);
     setUpdated(new Date());
   } catch (err) {
     showError(err.message);
@@ -994,6 +1082,7 @@ function showSetup() {
   document.getElementById("leaderboard-content").innerHTML = html;
   document.getElementById("fixtures-content").innerHTML = "";
   document.getElementById("records-content").innerHTML = "";
+  document.getElementById("progress-content").innerHTML = "";
   document.getElementById("updated-text").textContent = "Not connected";
 }
 
@@ -1007,6 +1096,7 @@ function showError(msg) {
   document.getElementById("leaderboard-content").innerHTML = html;
   document.getElementById("fixtures-content").innerHTML = "";
   document.getElementById("records-content").innerHTML = "";
+  document.getElementById("progress-content").innerHTML = "";
 }
 
 // =============================================================
@@ -1618,6 +1708,153 @@ function exactRows(finals) {
   return ranked.slice(0, 5).map((r, i) =>
     recordRow(i + 1, r.name, `${r.exact} <span class="record-unit">exact</span>`)
   ).join("");
+}
+
+// =============================================================
+// Table progress (rank over time)
+// =============================================================
+function renderProgress(leaderboard, fixtures) {
+  const el = document.getElementById("progress-content");
+  if (!el) return;
+
+  const players = (leaderboard || [])
+    .map(r => ({ name: r.player, key: normalizeName(r.player), isYouth: !!r.isYouth }))
+    .filter(p => p.name);
+  if (!players.length) {
+    el.innerHTML = `<div class="state"><h3>No players yet</h3><p>The chart appears once the standings load.</p></div>`;
+    return;
+  }
+
+  // Completed games in chronological order, grouped into distinct days.
+  const finals = (fixtures || [])
+    .filter(f => getStatus(f) === "final")
+    .map(f => ({ f, t: new Date(f.kickoffISO || f.date || 0).getTime(),
+                 dayKey: localDayKey(f.kickoffISO) || f.date || "?",
+                 label: progressDayLabel(f) }))
+    .sort((a, b) => a.t - b.t);
+
+  if (!finals.length) {
+    el.innerHTML = `<div class="state"><h3>No completed games yet</h3><p>The chart will build as results come in.</p></div>`;
+    return;
+  }
+
+  const days = [];
+  const seenDay = new Set();
+  const finalsByDay = {};
+  finals.forEach(x => {
+    if (!seenDay.has(x.dayKey)) { seenDay.add(x.dayKey); days.push({ key: x.dayKey, label: x.label }); }
+    (finalsByDay[x.dayKey] = finalsByDay[x.dayKey] || []).push(x.f);
+  });
+
+  // Cumulative points/exact per player, ranked at the end of each day.
+  const totals = {};
+  players.forEach(p => totals[p.key] = { pts: 0, exact: 0 });
+  const rankPerDay = {};
+  players.forEach(p => rankPerDay[p.key] = []);
+
+  days.forEach((d, di) => {
+    (finalsByDay[d.key] || []).forEach(f => {
+      (f.predictions || []).forEach(pred => {
+        const k = normalizeName(pred.player);
+        if (totals[k]) {
+          const pts = pred.points ?? 0;
+          totals[k].pts += pts;
+          if (pts === 4) totals[k].exact += 1;
+        }
+      });
+    });
+    const order = players.slice().sort((a, b) =>
+      totals[b.key].pts - totals[a.key].pts ||
+      totals[b.key].exact - totals[a.key].exact ||
+      a.name.localeCompare(b.name)
+    );
+    let place = 0, prevKey = null;
+    order.forEach((p, i) => {
+      const kk = `${totals[p.key].pts}|${totals[p.key].exact}`;
+      if (kk !== prevKey) { place = i + 1; prevKey = kk; }
+      rankPerDay[p.key][di] = place;
+    });
+  });
+
+  // Alphabetical order drives the legend and stable series indices.
+  const alpha = players.slice().sort((a, b) => a.name.localeCompare(b.name));
+
+  // Geometry
+  const N = players.length, D = days.length;
+  const rowH = 22, colW = 76, mT = 26, mB = 42, mL = 36, mR = 150;
+  const plotH = Math.max(rowH, (N - 1) * rowH);
+  const plotW = Math.max(colW, (D - 1) * colW);
+  const W = mL + plotW + mR, H = mT + plotH + mB;
+  const X = di => mL + (D <= 1 ? 0 : di * colW);
+  const Y = rank => mT + (N <= 1 ? 0 : (rank - 1) * rowH);
+
+  // Grid + axes
+  let grid = "";
+  const rankTicks = [];
+  for (let r = 1; r <= N; r += (N > 12 ? 5 : 2)) rankTicks.push(r);
+  if (rankTicks[rankTicks.length - 1] !== N) rankTicks.push(N);
+  rankTicks.forEach(r => {
+    grid += `<line class="grid" x1="${mL}" y1="${Y(r)}" x2="${mL + plotW}" y2="${Y(r)}"/>`;
+    grid += `<text class="axis-txt" x="${mL - 8}" y="${Y(r) + 3}" text-anchor="end">${r}</text>`;
+  });
+  days.forEach((d, di) => {
+    grid += `<line class="grid" x1="${X(di)}" y1="${mT}" x2="${X(di)}" y2="${mT + plotH}"/>`;
+    grid += `<text class="axis-txt" x="${X(di)}" y="${mT + plotH + 16}" text-anchor="middle">${escapeHtml(d.label)}</text>`;
+  });
+
+  // One series per player
+  const series = alpha.map((p, idx) => {
+    const pts = days.map((_, di) => `${X(di)},${Y(rankPerDay[p.key][di])}`).join(" ");
+    const dots = days.map((_, di) => `<circle class="dot" cx="${X(di)}" cy="${Y(rankPerDay[p.key][di])}" r="2.5"/>`).join("");
+    const lastRank = rankPerDay[p.key][D - 1];
+    const label = `<text class="lbl" x="${X(D - 1) + 10}" y="${Y(lastRank) + 4}">${lastRank}. ${escapeHtml(p.name)}</text>`;
+    return `<g class="series" data-idx="${idx}"><title>${escapeHtml(p.name)}</title><polyline points="${pts}"/>${dots}${label}</g>`;
+  }).join("");
+
+  const legend = alpha.map((p, idx) =>
+    `<button class="pl-legend-item" data-idx="${idx}"><span class="sw"></span>${escapeHtml(p.name)}${p.isYouth ? '<span class="u14-badge">U14</span>' : ''}</button>`
+  ).join("");
+
+  el.innerHTML = `
+    <div class="progress">
+      <p class="progress-hint">Table position (rank 1 = top) after each day of completed games. Tap a name to trace their path; the chart scrolls sideways for the full run.</p>
+      <div class="progress-body">
+        <div class="progress-legend">${legend}</div>
+        <div class="progress-scroll">
+          <svg class="progress-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Table position of each player over time">
+            ${grid}${series}
+          </svg>
+        </div>
+      </div>
+    </div>`;
+
+  // Interaction: hover previews, click locks a highlight.
+  const svg = el.querySelector(".progress-svg");
+  let locked = null;
+  const apply = idx => {
+    const has = idx != null;
+    svg.classList.toggle("has-hi", has);
+    svg.querySelectorAll(".series").forEach(s => s.classList.toggle("hi", s.dataset.idx === String(idx)));
+    el.querySelectorAll(".pl-legend-item").forEach(b => b.classList.toggle("active", b.dataset.idx === String(idx)));
+    if (has) { const s = svg.querySelector(`.series[data-idx="${idx}"]`); if (s) s.parentNode.appendChild(s); }
+  };
+  el.querySelectorAll(".pl-legend-item").forEach(b => {
+    const idx = b.dataset.idx;
+    b.addEventListener("mouseenter", () => { if (locked == null) apply(idx); });
+    b.addEventListener("mouseleave", () => { if (locked == null) apply(null); });
+    b.addEventListener("click", () => { locked = (locked === idx ? null : idx); apply(locked); });
+  });
+  svg.querySelectorAll(".series").forEach(s => {
+    s.addEventListener("mouseenter", () => { if (locked == null) apply(s.dataset.idx); });
+    s.addEventListener("mouseleave", () => { if (locked == null) apply(null); });
+  });
+}
+
+// Compact axis label for a day, e.g. "1 Jul".
+function progressDayLabel(f) {
+  const d = f.kickoffISO ? new Date(f.kickoffISO) : null;
+  if (d && !isNaN(d)) return d.toLocaleDateString([], { day: "numeric", month: "short" });
+  return String(f.date || "?");
 }
 
 // =============================================================
