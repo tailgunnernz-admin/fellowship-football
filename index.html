@@ -862,7 +862,6 @@
     .progress-legend { flex-basis: 92px; padding-right: 6px; }
     .pl-legend-item { font-size: 11px; padding: 3px 4px; gap: 5px; }
     .pl-legend-item .sw { width: 8px; height: 8px; }
-    .progress-axis { width: 22px; }
     .progress-hint { font-size: 11px; }
   }
   .fix-teams .mob-status { display: none; margin-left: 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; }
@@ -1811,7 +1810,7 @@ function renderProgress(leaderboard, fixtures) {
   const rankTicks = [];
   for (let r = 1; r <= N; r += (N > 12 ? 5 : 2)) rankTicks.push(r);
   if (rankTicks[rankTicks.length - 1] !== N) rankTicks.push(N);
-  const axisW = 30;
+  const axisW = narrow ? 24 : 30;
   let axis = ""; // rank numbers live in a fixed column, left of the scroll
   rankTicks.forEach(r => {
     grid += `<line class="grid" x1="${mL}" y1="${Y(r)}" x2="${mL + plotW}" y2="${Y(r)}"/>`;
