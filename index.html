@@ -856,6 +856,14 @@
     .pred-adv { font-size: 10px; }
     /* On mobile, status moves to inside the team line */
     .fix-teams .mob-status { display: inline-block; }
+    /* Give the progress chart more room: thinner name + position columns */
+    .progress { padding: 12px; }
+    .progress-body { gap: 8px; }
+    .progress-legend { flex-basis: 92px; padding-right: 6px; }
+    .pl-legend-item { font-size: 11px; padding: 3px 4px; gap: 5px; }
+    .pl-legend-item .sw { width: 8px; height: 8px; }
+    .progress-axis { width: 22px; }
+    .progress-hint { font-size: 11px; }
   }
   .fix-teams .mob-status { display: none; margin-left: 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; }
   .fix-teams .mob-status.status-live { color: var(--live-red); }
@@ -1790,7 +1798,8 @@ function renderProgress(leaderboard, fixtures) {
 
   // Geometry
   const N = players.length, D = days.length;
-  const rowH = 22, colW = 76, mT = 26, mB = 42, mL = 24, mR = 150;
+  const narrow = (typeof window !== "undefined" && window.innerWidth <= 560);
+  const rowH = 22, colW = narrow ? 54 : 76, mT = 26, mB = 42, mL = 24, mR = narrow ? 110 : 150;
   const plotH = Math.max(rowH, (N - 1) * rowH);
   const plotW = Math.max(colW, (D - 1) * colW);
   const W = mL + plotW + mR, H = mT + plotH + mB;
