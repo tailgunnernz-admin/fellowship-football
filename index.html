@@ -336,6 +336,18 @@
   }
   .lb-winner.out { color: #9ca3af; }
   .lb-winner.out .team { text-decoration: line-through; }
+  .lb-winner.win { color: var(--ball-black); }
+  .lb-winner.win .team { font-weight: 700; }
+  .lb-winner .lb-bonus {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 10px;
+    color: #b8860b;
+    background: rgba(245,197,66,0.22);
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-left: 2px;
+  }
   .lb-points {
     font-family: 'JetBrains Mono', monospace;
     font-weight: 700;
@@ -1126,6 +1138,16 @@ function renderLeaderboard(rows) {
     return;
   }
 
+  const fixtures = (lastData && lastData.fixtures) || [];
+  const eliminated = eliminatedTeams(fixtures);
+  const champion = championTeam(fixtures);
+
+  // Winner bonus: +5 to anyone whose pick actually won the World Cup.
+  rows.forEach(r => {
+    const bonus = (champion && normalizeName(winnerPick(r)) === champion) ? 5 : 0;
+    r._points = (r.points || 0) + bonus;
+  });
+
   // Filter to the active age group ("all" | under-14 | over-14).
   const filtered = rows.filter(r => {
     if (lbFilter === "youth") return r.isYouth === true;
@@ -1139,9 +1161,9 @@ function renderLeaderboard(rows) {
     return;
   }
 
-  // Sort by points, then exact scorelines (both descending).
+  // Sort by points (incl. winner bonus), then exact scorelines (both descending).
   const sorted = [...filtered].sort((a, b) =>
-    (b.points || 0) - (a.points || 0) ||
+    (b._points) - (a._points) ||
     (b.exact || 0) - (a.exact || 0)
   );
 
@@ -1149,23 +1171,21 @@ function renderLeaderboard(rows) {
   // points AND exact counts share a rank.
   let place = 0, prevKey = null;
   sorted.forEach((r, i) => {
-    const key = `${r.points || 0}|${r.exact || 0}`;
+    const key = `${r._points}|${r.exact || 0}`;
     if (key !== prevKey) { place = i + 1; prevKey = key; }
     r._place = place;
   });
 
   const showBadges = (lbFilter === "all");
-  const fixtures = (lastData && lastData.fixtures) || [];
-  const eliminated = eliminatedTeams(fixtures);
   const items = sorted.map(r => `
     <li class="lb-row" data-rank="${r._place}" aria-expanded="false">
       <button class="lb-summary" aria-label="Show ${escapeHtml(r.player || "player")}'s completed picks">
         <div class="rank-mark">${r._place}</div>
         <div class="lb-name">
           <span class="lb-player">${escapeHtml(r.player || "—")}${showBadges && r.isYouth ? `<span class="u14-badge">U14</span>` : ""}</span>
-          ${renderWinnerPick(r, eliminated)}
+          ${renderWinnerPick(r, eliminated, champion)}
         </div>
-        <div class="lb-points">${r.points ?? 0}<span class="lbl">pts</span></div>
+        <div class="lb-points">${r._points}<span class="lbl">pts</span></div>
         <div class="lb-exact"><strong>${r.exact ?? 0}</strong> exact</div>
         <svg class="chev" aria-hidden="true"><use href="#chev"/></svg>
       </button>
@@ -1211,17 +1231,46 @@ function eliminatedTeams(fixtures) {
   return set;
 }
 
-// The winner-pick badge shown under a player's name. Flag + team while the
-// team is alive; a skull and struck-through name once it's knocked out.
-function renderWinnerPick(r, eliminated) {
+// The winner-pick badge shown under a player's name. A trophy + team + "+5"
+// if their pick won the tournament; a skull and struck-through name once it's
+// knocked out; otherwise the flag + team while the team is still alive.
+function renderWinnerPick(r, eliminated, champion) {
   const pick = winnerPick(r);
   if (!pick) return "";
+  const nk = normalizeName(pick);
   const team = `<span class="team">${escapeHtml(pick)}</span>`;
-  if (eliminated && eliminated.has(normalizeName(pick))) {
+  if (champion && nk === champion) {
+    return `<span class="lb-winner win" title="Picked the champion (+5)">🏆 ${team} <span class="lb-bonus">+5</span></span>`;
+  }
+  if (eliminated && eliminated.has(nk)) {
     return `<span class="lb-winner out" title="Knocked out">💀 ${team}</span>`;
   }
   const fl = flagFor(pick);
   return `<span class="lb-winner" title="Winner pick">${fl ? fl + " " : ""}${team}</span>`;
+}
+
+// The World Cup champion (winner of the Final), or null until it's played.
+function championTeam(fixtures) {
+  const kos = (fixtures || []).filter(f => isKnockout(f) && getStatus(f) === "final");
+  if (!kos.length) return null;
+  // The Final: round says "final" but not semi/quarter/third-place; else the
+  // latest completed knockout game.
+  let fin = kos.find(f => {
+    const rd = normalizeName(f.round);
+    return /final/.test(rd) && !/semi|quarter|third|3rd|bronze|play.?off/.test(rd);
+  });
+  if (!fin) {
+    fin = kos.slice().sort((a, b) =>
+      new Date(b.kickoffISO || b.date || 0) - new Date(a.kickoffISO || a.date || 0))[0];
+  }
+  const h = Number(fin.actualHome), a = Number(fin.actualAway);
+  if (isNaN(h) || isNaN(a)) return null;
+  let win = null;
+  if (h > a) win = fin.home;
+  else if (a > h) win = fin.away;
+  else if (fin.advancer === "Home") win = fin.home;
+  else if (fin.advancer === "Away") win = fin.away;
+  return win ? normalizeName(win) : null;
 }
 
 // For one player, list every completed game with their pick, the actual
